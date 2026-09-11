@@ -5,16 +5,16 @@ import org.springframework.stereotype.Service;
 import java.util.regex.Pattern;
 
 @Service
-public class UsersService {
+public class UserService {
 
     private static final Pattern EMAIL_PATTERN =
         Pattern.compile("^[\\w.+-]+@[\\w-]+\\.[a-zA-Z]{2,}$");
 
-    private final UsersRepository usersRepository;
+    private final UserRepository userRepository;
     private final PasswordEncoderPort passwordEncoderPort;
 
-    public UsersService(UsersRepository usersRepository, PasswordEncoderPort passwordEncoderPort) {
-        this.usersRepository = usersRepository;
+    public UserService(UserRepository userRepository, PasswordEncoderPort passwordEncoderPort) {
+        this.userRepository = userRepository;
         this.passwordEncoderPort = passwordEncoderPort;
     }
 
@@ -25,7 +25,7 @@ public class UsersService {
 
         newUser.setPassword(passwordEncoderPort.encode(newUser.getPassword()));
 
-        return usersRepository.save(newUser);
+        return userRepository.save(newUser);
     }
 
     private void validateRequiredFields(UserEntity user) {
@@ -59,7 +59,7 @@ public class UsersService {
     }
 
     private void validateEmailNotTaken(String email) {
-        if (usersRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmail(email)) {
             throw new IllegalArgumentException("Ya existe una cuenta con este email");
         }
     }
