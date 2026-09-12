@@ -1,5 +1,7 @@
 package dev.team1.users;
 
+import dev.team1.users.dtos.UserRequestDTO;
+import dev.team1.users.dtos.UserResponseDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -24,57 +26,80 @@ class UserServiceTest {
     @Mock
     private PasswordEncoderPort passwordEncoderPort;
 
+    @Mock
+    private UserMapper userMapper;
+
     @InjectMocks
     private UserService userService;
 
-    private UserEntity validUser;
+    private UserRequestDTO validRequest;
+    private UserEntity mappedEntity;
 
     @BeforeEach
     void setUp() {
-        validUser = new UserEntity();
-        validUser.setFirstName("Ahmet");
-        validUser.setLastName("Yılmaz");
-        validUser.setEmail("ahmet@example.com");
-        validUser.setPassword("secret123");
-        validUser.setAddress("Calle Mayor 5");
-        validUser.setPostalCode("28001");
-        validUser.setCity("Madrid");
+        validRequest = new UserRequestDTO();
+        validRequest.setFirstName("Ahmet");
+        validRequest.setLastName("Yılmaz");
+        validRequest.setEmail("ahmet@example.com");
+        validRequest.setPassword("secret123");
+        validRequest.setAddress("Calle Mayor 5");
+        validRequest.setPostalCode("28001");
+        validRequest.setCity("Madrid");
+
+        mappedEntity = new UserEntity();
+        mappedEntity.setFirstName("Ahmet");
+        mappedEntity.setLastName("Yılmaz");
+        mappedEntity.setEmail("ahmet@example.com");
+        mappedEntity.setPassword("secret123");
+        mappedEntity.setAddress("Calle Mayor 5");
+        mappedEntity.setPostalCode("28001");
+        mappedEntity.setCity("Madrid");
     }
 
     @Test
     void registerUser_withValidData_savesAndReturnsUser() {
-        when(userRepository.existsByEmail(validUser.getEmail())).thenReturn(false);
-        when(passwordEncoderPort.encode(validUser.getPassword())).thenReturn("encoded-secret123");
-        when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        UserEntity savedEntity = new UserEntity();
+        savedEntity.setEmail("ahmet@example.com");
+        savedEntity.setPassword("encoded-secret123");
 
-        UserEntity result = userService.registerUser(validUser);
+        UserResponseDTO expectedResponse = new UserResponseDTO();
+        expectedResponse.setId(1L);
+        expectedResponse.setEmail("ahmet@example.com");
+
+        when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
+        when(userMapper.toEntity(validRequest)).thenReturn(mappedEntity);
+        when(passwordEncoderPort.encode("secret123")).thenReturn("encoded-secret123");
+        when(userRepository.save(any(UserEntity.class))).thenReturn(savedEntity);
+        when(userMapper.toResponseDTO(savedEntity)).thenReturn(expectedResponse);
+
+        UserResponseDTO result = userService.registerUser(validRequest);
 
         assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(1L);
         assertThat(result.getEmail()).isEqualTo("ahmet@example.com");
-        assertThat(result.getPassword()).isEqualTo("encoded-secret123");
-        verify(userRepository).save(validUser);
+        verify(userRepository).save(mappedEntity);
     }
 
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"   "})
     void registerUser_withBlankFirstName_throwsException(String blankValue) {
-        validUser.setFirstName(blankValue);
+        validRequest.setFirstName(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validUser))
+        assertThatThrownBy(() -> userService.registerUser(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("El nombre es obligatorio");
 
-        verifyNoInteractions(userRepository, passwordEncoderPort);
+        verifyNoInteractions(userRepository, passwordEncoderPort, userMapper);
     }
 
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"   "})
     void registerUser_withBlankLastName_throwsException(String blankValue) {
-        validUser.setLastName(blankValue);
+        validRequest.setLastName(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validUser))
+        assertThatThrownBy(() -> userService.registerUser(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("Los apellidos son obligatorios");
     }
@@ -82,9 +107,9 @@ class UserServiceTest {
     @ParameterizedTest
     @NullAndEmptySource
     void registerUser_withBlankEmail_throwsException(String blankValue) {
-        validUser.setEmail(blankValue);
+        validRequest.setEmail(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validUser))
+        assertThatThrownBy(() -> userService.registerUser(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("El email es obligatorio");
     }
@@ -92,9 +117,9 @@ class UserServiceTest {
     @ParameterizedTest
     @NullAndEmptySource
     void registerUser_withBlankAddress_throwsException(String blankValue) {
-        validUser.setAddress(blankValue);
+        validRequest.setAddress(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validUser))
+        assertThatThrownBy(() -> userService.registerUser(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("La dirección es obligatoria");
     }
@@ -102,9 +127,9 @@ class UserServiceTest {
     @ParameterizedTest
     @NullAndEmptySource
     void registerUser_withBlankPostalCode_throwsException(String blankValue) {
-        validUser.setPostalCode(blankValue);
+        validRequest.setPostalCode(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validUser))
+        assertThatThrownBy(() -> userService.registerUser(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("El código postal es obligatorio");
     }
@@ -112,9 +137,9 @@ class UserServiceTest {
     @ParameterizedTest
     @NullAndEmptySource
     void registerUser_withBlankCity_throwsException(String blankValue) {
-        validUser.setCity(blankValue);
+        validRequest.setCity(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validUser))
+        assertThatThrownBy(() -> userService.registerUser(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("La ciudad es obligatoria");
     }
@@ -122,9 +147,9 @@ class UserServiceTest {
     @ParameterizedTest
     @NullAndEmptySource
     void registerUser_withBlankPassword_throwsException(String blankValue) {
-        validUser.setPassword(blankValue);
+        validRequest.setPassword(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validUser))
+        assertThatThrownBy(() -> userService.registerUser(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("La contraseña es obligatoria");
     }
@@ -132,18 +157,18 @@ class UserServiceTest {
     @ParameterizedTest
     @ValueSource(strings = {"not-an-email", "missing-at-sign.com", "no-domain@", "@no-local-part.com", "spaces in@email.com"})
     void registerUser_withInvalidEmailFormat_throwsException(String invalidEmail) {
-        validUser.setEmail(invalidEmail);
+        validRequest.setEmail(invalidEmail);
 
-        assertThatThrownBy(() -> userService.registerUser(validUser))
+        assertThatThrownBy(() -> userService.registerUser(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("El formato del email no es válido");
     }
 
     @Test
     void registerUser_withAlreadyRegisteredEmail_throwsException() {
-        when(userRepository.existsByEmail(validUser.getEmail())).thenReturn(true);
+        when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(true);
 
-        assertThatThrownBy(() -> userService.registerUser(validUser))
+        assertThatThrownBy(() -> userService.registerUser(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("Ya existe una cuenta con este email");
 
