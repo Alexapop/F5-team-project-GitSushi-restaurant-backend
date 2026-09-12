@@ -1,5 +1,7 @@
 package dev.team1.users;
 
+import dev.team1.users.dtos.UserRequestDTO;
+import dev.team1.users.dtos.UserResponseDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -22,7 +24,9 @@ class UserControllerTest {
     void setUp() {
         userService = mock(UserService.class);
         UserController controller = new UserController(userService);
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+            .addPlaceholderValue("api-endpoint", "api/v1")
+            .build();
     }
 
     private String validUserJson() {
@@ -41,26 +45,26 @@ class UserControllerTest {
 
     @Test
     void createUser_withValidData_returns201AndCreatedUser() throws Exception {
-        UserEntity savedUser = new UserEntity();
-        savedUser.setIdUser(1L);
+        UserResponseDTO savedUser = new UserResponseDTO();
+        savedUser.setId(1L);
         savedUser.setEmail("ahmet@example.com");
 
-        when(userService.registerUser(any(UserEntity.class))).thenReturn(savedUser);
+        when(userService.registerUser(any(UserRequestDTO.class))).thenReturn(savedUser);
 
-        mockMvc.perform(post("/usuarios")
+        mockMvc.perform(post("/api/v1/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validUserJson()))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.idUser").value(1))
+            .andExpect(jsonPath("$.id").value(1))
             .andExpect(jsonPath("$.email").value("ahmet@example.com"));
     }
 
     @Test
     void createUser_withBlankFirstName_returns400() throws Exception {
-        when(userService.registerUser(any(UserEntity.class)))
+        when(userService.registerUser(any(UserRequestDTO.class)))
             .thenThrow(new IllegalArgumentException("El nombre es obligatorio"));
 
-        mockMvc.perform(post("/usuarios")
+        mockMvc.perform(post("/api/v1/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validUserJson()))
             .andExpect(status().isBadRequest());
@@ -68,10 +72,10 @@ class UserControllerTest {
 
     @Test
     void createUser_withDuplicateEmail_returns400() throws Exception {
-        when(userService.registerUser(any(UserEntity.class)))
+        when(userService.registerUser(any(UserRequestDTO.class)))
             .thenThrow(new IllegalArgumentException("Ya existe una cuenta con este email"));
 
-        mockMvc.perform(post("/usuarios")
+        mockMvc.perform(post("/api/v1/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validUserJson()))
             .andExpect(status().isBadRequest());
