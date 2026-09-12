@@ -1,5 +1,7 @@
 package dev.team1.users;
 
+import dev.team1.users.dtos.UserRequestDTO;
+import dev.team1.users.dtos.UserResponseDTO;
 import org.springframework.stereotype.Service;
 
 import java.util.regex.Pattern;
@@ -12,42 +14,46 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoderPort passwordEncoderPort;
+    private final UserMapper userMapper;
 
-    public UserService(UserRepository userRepository, PasswordEncoderPort passwordEncoderPort) {
+    public UserService(UserRepository userRepository, PasswordEncoderPort passwordEncoderPort, UserMapper userMapper) {
         this.userRepository = userRepository;
         this.passwordEncoderPort = passwordEncoderPort;
+        this.userMapper = userMapper;
     }
 
-    public UserEntity registerUser(UserEntity newUser) {
-        validateRequiredFields(newUser);
-        validateEmailFormat(newUser.getEmail());
-        validateEmailNotTaken(newUser.getEmail());
+    public UserResponseDTO registerUser(UserRequestDTO requestDTO) {
+        validateRequiredFields(requestDTO);
+        validateEmailFormat(requestDTO.getEmail());
+        validateEmailNotTaken(requestDTO.getEmail());
 
+        UserEntity newUser = userMapper.toEntity(requestDTO);
         newUser.setPassword(passwordEncoderPort.encode(newUser.getPassword()));
 
-        return userRepository.save(newUser);
+        UserEntity savedUser = userRepository.save(newUser);
+        return userMapper.toResponseDTO(savedUser);
     }
 
-    private void validateRequiredFields(UserEntity user) {
-        if (isBlank(user.getFirstName())) {
+    private void validateRequiredFields(UserRequestDTO dto) {
+        if (isBlank(dto.getFirstName())) {
             throw new IllegalArgumentException("El nombre es obligatorio");
         }
-        if (isBlank(user.getLastName())) {
+        if (isBlank(dto.getLastName())) {
             throw new IllegalArgumentException("Los apellidos son obligatorios");
         }
-        if (isBlank(user.getEmail())) {
+        if (isBlank(dto.getEmail())) {
             throw new IllegalArgumentException("El email es obligatorio");
         }
-        if (isBlank(user.getAddress())) {
+        if (isBlank(dto.getAddress())) {
             throw new IllegalArgumentException("La dirección es obligatoria");
         }
-        if (isBlank(user.getPostalCode())) {
+        if (isBlank(dto.getPostalCode())) {
             throw new IllegalArgumentException("El código postal es obligatorio");
         }
-        if (isBlank(user.getCity())) {
+        if (isBlank(dto.getCity())) {
             throw new IllegalArgumentException("La ciudad es obligatoria");
         }
-        if (isBlank(user.getPassword())) {
+        if (isBlank(dto.getPassword())) {
             throw new IllegalArgumentException("La contraseña es obligatoria");
         }
     }
