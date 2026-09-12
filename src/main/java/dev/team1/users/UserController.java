@@ -1,13 +1,17 @@
 package dev.team1.users;
 
+import dev.team1.users.dtos.UserRequestDTO;
+import dev.team1.users.dtos.UserResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequestMapping(path = "${api-endpoint}/users")
 public class UserController {
 
     private final UserService userService;
@@ -16,9 +20,9 @@ public class UserController {
         this.userService = userService;
     }
 
-    @PostMapping("/usuarios")
-    public ResponseEntity<UserEntity> createUser(@RequestBody UserEntity newUser) {
-        UserEntity savedUser = userService.registerUser(newUser);
+    @PostMapping("")
+    public ResponseEntity<UserResponseDTO> createUser(@RequestBody UserRequestDTO requestDTO) {
+        UserResponseDTO savedUser = userService.registerUser(requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
     }
 
