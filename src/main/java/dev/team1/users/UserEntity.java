@@ -10,10 +10,9 @@ import java.util.Set;
 @Table(name = "users")
 public class UserEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_user")
-    private Long idUser;
+@Id
+@GeneratedValue(strategy = GenerationType.IDENTITY)
+private Long id;
 
     @Column(name = "first_name", nullable = false)
     private String firstName;
@@ -40,7 +39,7 @@ public class UserEntity {
 
     @ManyToMany
     @JoinTable(
-        name = "user_roles",
+        name = "users_roles",
         joinColumns = @JoinColumn(name = "id_user"),
         inverseJoinColumns = @JoinColumn(name = "id_role")
     )
@@ -49,13 +48,13 @@ public class UserEntity {
     public UserEntity() {
     }
 
-    public Long getIdUser() {
-        return idUser;
-    }
+    public Long getId() {
+    return id;
+}
 
-    public void setIdUser(Long idUser) {
-        this.idUser = idUser;
-    }
+public void setId(Long id) {
+    this.id = id;
+}
 
     public String getFirstName() {
         return firstName;
