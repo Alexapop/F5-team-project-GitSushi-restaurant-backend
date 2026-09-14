@@ -23,8 +23,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import dev.team1.enums.ProductCategory;
+import dev.team1.mappers.ProductMapper;
 import dev.team1.products.dtos.ProductDTOResponse;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import dev.team1.products.dtos.ProductDTOPatchRequest;
+import dev.team1.products.dtos.ProductDTORequest;
+import dev.team1.products.exceptions.ProductExceptionConflict;
 
 @ExtendWith (MockitoExtension.class)
 public class ProductServiceTest {
@@ -136,7 +145,73 @@ public class ProductServiceTest {
         assertThat(exc.getMessage(), is(equalTo(
             "Cannot find product with id " + missingId + " because it doesn't exist."
         )));
-
     }
+
+    @Test
+    void testStore_shouldStoreTheProduct() {
+        ProductDTORequest mockReqDTO = ProductTestData.samplePOSTRequestDTO();
+        ProductEntity savedEntity = sampleEntities.get(0);
+        ProductDTOResponse expectedDTO = sampleDTOs.get(0);
+
+        when(repository.existsByName(mockReqDTO.name())).thenReturn(false);
+        when(repository.save(any(ProductEntity.class))).thenReturn(savedEntity);
+
+        ProductDTOResponse resultDTO = service.store(mockReqDTO);
+
+        verify(repository).existsByName(mockReqDTO.name());
+        verify(repository).save(any(ProductEntity.class));
+        assertThat(resultDTO.name(), is(equalTo(expectedDTO.name())));
+    }
+
+    @Test
+    void testStore_shouldThrowConflict_whenNameAlreadyExists() {
+        ProductDTORequest mockReqDTO = ProductTestData.samplePOSTRequestDTO();
+
+        when(repository.existsByName(mockReqDTO.name())).thenReturn(true);
+
+        ProductExceptionConflict exc = assertThrows(
+            ProductExceptionConflict.class,
+            () -> service.store(mockReqDTO)
+        );
+
+        assertThat(exc.getMessage(), is(equalTo("Product already exists.")));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void testUpdate_shouldUpdateTheProduct() {
+        Long id = 1L;
+        ProductEntity originalEntity = sampleEntities.get(0);
+        ProductDTOPatchRequest mockPatchDTO = ProductTestData.sampleAvailableUpdateReq();
+        ProductEntity savedEntity = sampleEntities.get(0);
+        savedEntity.setAvailable(false);
+        ProductDTOResponse expectedDTO = ProductMapper.toDTO(savedEntity);
+
+        when(repository.findById(id)).thenReturn(Optional.of(originalEntity));
+        when(repository.save(any(ProductEntity.class))).thenReturn(savedEntity);
+
+        ProductDTOResponse resultDTO = service.update(id, mockPatchDTO);
+
+        verify(repository).findById(id);
+        verify(repository).save(any(ProductEntity.class));
+        assertThat(resultDTO, is(equalTo(expectedDTO)));
+    }
+
+    @Test
+    void testUpdate_shouldThrowNotFound_whenIdDoesNotExist() {
+        Long missingId = 500L;
+        ProductDTOPatchRequest mockPatchDTO = ProductTestData.sampleNameUpdateReq();
+
+        when(repository.findById(missingId)).thenReturn(Optional.empty());
+
+        ProductExceptionNotFound exc = assertThrows(
+            ProductExceptionNotFound.class,
+            () -> service.update(missingId, mockPatchDTO)
+        );
+
+        assertThat(exc.getMessage(), is(equalTo("Product " + missingId + " is not found")));
+        verify(repository, never()).save(any());
+    }
+
 
 }

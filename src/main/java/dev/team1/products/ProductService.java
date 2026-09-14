@@ -6,9 +6,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import dev.team1.contracts.IProductService;
+import dev.team1.products.dtos.ProductDTOPatchRequest;
 import dev.team1.enums.ProductCategory;
 import dev.team1.mappers.ProductMapper;
+import dev.team1.products.dtos.ProductDTORequest;
 import dev.team1.products.dtos.ProductDTOResponse;
+import dev.team1.products.exceptions.ProductExceptionConflict;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
 
 @Service 
@@ -53,6 +56,31 @@ public class ProductService implements IProductService {
         Page<ProductEntity> pageEntity = productsRepository.findByCategory(category, pageable);
         
         return pageEntity.map(ProductMapper::toDTO);
+    }
+
+    @Override
+    public ProductDTOResponse store(ProductDTORequest requestDTO) {
+        if (productsRepository.existsByName(requestDTO.name())) {
+            throw new ProductExceptionConflict("Product already exists.");
+        }
+        
+        ProductEntity entity = ProductMapper.toEntity(requestDTO);
+
+        ProductEntity savedEntity = productsRepository.save(entity);
+
+        return ProductMapper.toDTO(savedEntity);
+    }
+
+    @Override
+    public ProductDTOResponse update(Long id, ProductDTOPatchRequest requestDTO) {
+        ProductEntity originalEntity = productsRepository.findById(id)
+            .orElseThrow(() -> new ProductExceptionNotFound(
+                "Product " + id + " is not found"
+            ));
+
+        ProductEntity updated = ProductMapper.updateEntity(originalEntity, requestDTO);
+        ProductEntity saved = productsRepository.save(updated);
+        return ProductMapper.toDTO(saved);
     }
 
 }

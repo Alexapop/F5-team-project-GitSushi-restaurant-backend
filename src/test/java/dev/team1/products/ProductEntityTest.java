@@ -57,4 +57,41 @@ public class ProductEntityTest {
         assertThat(product.isExclusive(), is(equalTo(true)));
     }
 
+    @Test 
+    void testProductEntity_builder() {
+        ProductEntity empty = ProductEntity.builder().build();
+        
+        ProductEntity entity = ProductEntity.builder()
+            .name("name")
+            .category(ProductCategory.ARROZ_AND_FIDEOS)
+            .description("description")
+            .imageUrl("image.png")
+            .price(BigDecimal.valueOf(5.0))
+            .discount(BigDecimal.valueOf(0.0))
+            .available(true)
+            .exclusive(false)
+            .build();
+
+        assertThat(empty, is(instanceOf(ProductEntity.class)));
+        assertThat(entity, is(instanceOf(ProductEntity.class)));
+        assertThat(entity.getClass().getDeclaredFields().length, is(equalTo(10)));
+
+        assertThat(entity.getName(), is(equalTo("name")));
+        assertThat(entity.getDescription(), is(equalTo("description")));
+        assertThat(entity.getImageUrl(), is(equalTo("image.png")));
+        assertThat(entity.getPrice(), is(equalTo(BigDecimal.valueOf(5.0))));
+        assertThat(entity.getDiscount(), is(equalTo(BigDecimal.valueOf(0.0))));
+        assertThat(entity.getId(), is(equalTo(null)));
+        assertThat(entity.getCategory(), is(equalTo(ProductCategory.ARROZ_AND_FIDEOS)));
+        
+        assertThat(entity.isAvailable(), is(equalTo(true)));
+        entity.setAvailable(false);
+        assertThat(entity.isAvailable(), is(equalTo(false)));
+        
+        assertThat(entity.isExclusive(), is(equalTo(false)));
+        entity.setExclusive(true);
+        assertThat(entity.isExclusive(), is(equalTo(true)));
+
+    }
+
 }
