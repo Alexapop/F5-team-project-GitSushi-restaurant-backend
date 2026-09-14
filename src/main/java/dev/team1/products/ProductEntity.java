@@ -16,13 +16,14 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity 
 @Table(name = "products")
 @NoArgsConstructor 
-@AllArgsConstructor 
+@AllArgsConstructor
 @Getter
 public class ProductEntity {
 
@@ -58,6 +59,19 @@ public class ProductEntity {
 
     @OneToMany(mappedBy = "product")
     private List<OrderProductEntity> orderProducts = new ArrayList<>();
+
+    @Builder 
+    public ProductEntity(String name, ProductCategory category, String description, String imageUrl, BigDecimal price,
+            BigDecimal discount, boolean available, boolean exclusive) {
+        this.name = name;
+        this.category = category;
+        this.description = description;
+        this.imageUrl = imageUrl;
+        this.price = price;
+        this.discount = discount;
+        this.available = available;
+        this.exclusive = exclusive;
+    }
 
     public void setAvailable(boolean available) {
         this.available = available;

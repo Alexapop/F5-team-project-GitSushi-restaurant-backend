@@ -66,7 +66,7 @@ public class ProductController {
     public ResponseEntity<ProductDTOResponse> store(@Valid @RequestBody ProductDTORequest dto) {
         return ResponseEntity.status(201).body(
             productsService.store(dto)
-        ).build();
+        );
     }
     
 
