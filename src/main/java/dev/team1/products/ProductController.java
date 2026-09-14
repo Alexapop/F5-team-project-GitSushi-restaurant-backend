@@ -5,11 +5,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import dev.team1.contracts.IProductService;
 import dev.team1.enums.ProductCategory;
-import dev.team1.products.dtos.ProductAvailableDTO;
 import dev.team1.products.dtos.ProductDTOPatchRequest;
 import dev.team1.products.dtos.ProductDTORequest;
 import dev.team1.products.dtos.ProductDTOResponse;
-import dev.team1.products.dtos.ProductExclusiveDTO;
 import jakarta.validation.Valid;
 
 import org.springframework.data.domain.Page;
