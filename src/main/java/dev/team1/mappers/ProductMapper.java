@@ -5,6 +5,8 @@ import dev.team1.products.dtos.ProductDTOResponse;
 
 public class ProductMapper {
 
+    private ProductMapper() {}
+
     public static ProductDTOResponse toDTO(ProductEntity entity) {
 
         return ProductDTOResponse.builder()

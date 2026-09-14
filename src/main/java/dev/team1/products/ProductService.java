@@ -40,7 +40,9 @@ public class ProductService implements IProductService {
     @Transactional(readOnly = true)
     public ProductDTOResponse getById(Long id) {
         ProductEntity product = productsRepository.findById(id)
-            .orElseThrow(() -> new ProductExceptionNotFound("Cannot find product with id " + id + " because it doesn't exist."));
+            .orElseThrow(() -> new ProductExceptionNotFound(
+                "Cannot find product with id " + id + " because it doesn't exist."
+            ));
         
         return ProductMapper.toDTO(product);
     }

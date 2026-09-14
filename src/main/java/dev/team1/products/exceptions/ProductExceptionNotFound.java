@@ -10,9 +10,9 @@ public class ProductExceptionNotFound extends ProductException {
         super(message);
     }
 
-    public ProductExceptionNotFound(String message, Throwable cause) {
-        super(message, cause);
-    }
+    // public ProductExceptionNotFound(String message, Throwable cause) {
+    //     super(message, cause);
+    // }
 }
 
 

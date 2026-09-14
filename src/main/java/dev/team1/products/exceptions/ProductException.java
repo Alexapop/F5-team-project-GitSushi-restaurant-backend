@@ -6,8 +6,8 @@ public class ProductException extends RuntimeException {
         super(message);
     }
 
-    public ProductException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    // public ProductException(String message, Throwable cause) {
+    //     super(message, cause);
+    // }
 
 }
