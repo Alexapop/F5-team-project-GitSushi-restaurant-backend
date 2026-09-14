@@ -11,6 +11,7 @@ import dev.team1.enums.ProductCategory;
 import dev.team1.mappers.ProductMapper;
 import dev.team1.products.dtos.ProductDTORequest;
 import dev.team1.products.dtos.ProductDTOResponse;
+import dev.team1.products.dtos.ProductExclusiveDTO;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
 
 @Service 
@@ -73,9 +74,17 @@ public class ProductService implements IProductService {
     }
 
     @Override
-    public void updadeAvailability(ProductAvailableDTO dto) {
+    public void updadeAvailability(Long id, ProductAvailableDTO dto) {
         // TODO Auto-generated method stub
         
     }
+
+    @Override
+    public void updadeExclusive(Long id, ProductExclusiveDTO dto) {
+        // TODO Auto-generated method stub
+        
+    }
+
+    
 
 }

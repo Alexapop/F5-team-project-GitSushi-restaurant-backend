@@ -7,6 +7,7 @@ import dev.team1.enums.ProductCategory;
 import dev.team1.products.dtos.ProductAvailableDTO;
 import dev.team1.products.dtos.ProductDTORequest;
 import dev.team1.products.dtos.ProductDTOResponse;
+import dev.team1.products.dtos.ProductExclusiveDTO;
 
 public interface IProductService extends IGenericGetService<ProductDTOResponse>, IGenericEditService<ProductDTORequest, ProductDTOResponse> {
 
@@ -14,6 +15,8 @@ public interface IProductService extends IGenericGetService<ProductDTOResponse>,
     
     public Page<ProductDTOResponse> getAllAvailable(Pageable pageable);
 
-    public void updadeAvailability(ProductAvailableDTO dto);
+    public void updadeAvailability(Long id, ProductAvailableDTO dto);
+    
+    public void updadeExclusive(Long id, ProductExclusiveDTO dto);
 
 }
