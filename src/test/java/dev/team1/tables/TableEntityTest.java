@@ -12,7 +12,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 
-class RestaurantTableEntityTest {
+class TableEntityTest {
 
     private Validator validator;
 
@@ -22,21 +22,21 @@ class RestaurantTableEntityTest {
     }
 
     @Test
-    void validRestaurantTablePassesValidation() {
-        RestaurantTableEntity restaurantTable = new RestaurantTableEntity();
-        restaurantTable.setTableNumber(12);
-        restaurantTable.setDeviceIdentifier("tablet-12");
+    void validTablePassesValidation() {
+        TableEntity table = new TableEntity();
+        table.setTableNumber(12);
+        table.setDeviceIdentifier("tablet-12");
 
-        Set<ConstraintViolation<RestaurantTableEntity>> violations = validator.validate(restaurantTable);
+        Set<ConstraintViolation<TableEntity>> violations = validator.validate(table);
 
         assertTrue(violations.isEmpty());
     }
 
     @Test
-    void restaurantTableRequiresTableNumberAndDeviceIdentifier() {
-        RestaurantTableEntity restaurantTable = new RestaurantTableEntity();
+    void tableRequiresTableNumberAndDeviceIdentifier() {
+        TableEntity table = new TableEntity();
 
-        Set<ConstraintViolation<RestaurantTableEntity>> violations = validator.validate(restaurantTable);
+        Set<ConstraintViolation<TableEntity>> violations = validator.validate(table);
 
         assertEquals(2, violations.size());
         assertTrue(violations.stream().anyMatch(violation ->
@@ -46,12 +46,12 @@ class RestaurantTableEntityTest {
     }
 
     @Test
-    void restaurantTableRejectsNonPositiveTableNumber() {
-        RestaurantTableEntity restaurantTable = new RestaurantTableEntity();
-        restaurantTable.setTableNumber(0);
-        restaurantTable.setDeviceIdentifier("tablet-12");
+    void tableRejectsNonPositiveTableNumber() {
+        TableEntity table = new TableEntity();
+        table.setTableNumber(0);
+        table.setDeviceIdentifier("tablet-12");
 
-        Set<ConstraintViolation<RestaurantTableEntity>> violations = validator.validate(restaurantTable);
+        Set<ConstraintViolation<TableEntity>> violations = validator.validate(table);
 
         assertEquals(1, violations.size());
         assertEquals("tableNumber", violations.iterator().next().getPropertyPath().toString());

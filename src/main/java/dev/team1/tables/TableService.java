@@ -7,13 +7,13 @@ import org.springframework.web.server.ResponseStatusException;
 import dev.team1.tables.dtos.TableDTOResponse;
 
 @Service
-public class RestaurantTableService {
+public class TableService {
 
-    private final RestaurantTableRepository restaurantTableRepository;
+    private final TableRepository tableRepository;
 
-    public RestaurantTableService(
-            RestaurantTableRepository restaurantTableRepository) {
-        this.restaurantTableRepository = restaurantTableRepository;
+    public TableService(
+            TableRepository tableRepository) {
+        this.tableRepository = tableRepository;
     }
 
     public TableDTOResponse getTableByDeviceIdentifier(String deviceIdentifier) {
@@ -21,7 +21,7 @@ public class RestaurantTableService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Device identifier cannot be empty.");
         }
 
-        return restaurantTableRepository.findByDeviceIdentifier(deviceIdentifier.strip())
+        return tableRepository.findByDeviceIdentifier(deviceIdentifier.strip())
                 .map(table -> new TableDTOResponse(table.getTableNumber()))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
