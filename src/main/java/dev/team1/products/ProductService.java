@@ -76,20 +76,36 @@ public class ProductService implements IProductService {
 
     @Override
     public ProductDTOResponse update(Long id, ProductDTORequest requestDTO) {
-        // TODO Auto-generated method stub
-        return null;
+        ProductEntity originalEntity = productsRepository.findById(id)
+            .orElseThrow(() -> new ProductExceptionNotFound(
+                "Product " + id + " is not found"
+            ));
+
+        ProductEntity updated = ProductMapper.updateEntity(originalEntity, requestDTO);
+        ProductEntity saved = productsRepository.save(updated);
+        return ProductMapper.toDTO(saved);
     }
 
     @Override
     public void updadeAvailability(Long id, ProductAvailableDTO dto) {
-        // TODO Auto-generated method stub
-        
+        ProductEntity entity = productsRepository.findById(id)
+            .orElseThrow(() -> new ProductExceptionNotFound(
+                "Product " + id + " is not found"
+            ));
+
+        entity.setAvailable(dto.available());
+        productsRepository.save(entity);
     }
 
     @Override
     public void updadeExclusive(Long id, ProductExclusiveDTO dto) {
-        // TODO Auto-generated method stub
-        
+        ProductEntity entity = productsRepository.findById(id)
+            .orElseThrow(() -> new ProductExceptionNotFound(
+                "Product " + id + " is not found"
+            ));
+
+        entity.setExclusive(dto.exclusive());
+        productsRepository.save(entity);
     }
 
 
