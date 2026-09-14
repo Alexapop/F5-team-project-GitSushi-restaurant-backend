@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import dev.team1.enums.ProductCategory;
+import dev.team1.products.dtos.ProductDTOPatchRequest;
+import dev.team1.products.dtos.ProductDTORequest;
 import dev.team1.products.dtos.ProductDTOResponse;
 
 public class ProductTestData {
@@ -171,4 +173,43 @@ public class ProductTestData {
         );
     }
 
+    static ProductDTORequest samplePOSTRequestDTO() {
+        return new ProductDTORequest(
+            "name", ProductCategory.BEBIDAS, "description",
+            "image.png", BigDecimal.valueOf(5.0), 
+            BigDecimal.valueOf(0.0), true, false
+        );
+    }
+    
+    static ProductDTOPatchRequest samplePATCHFullRequestDTO() {
+        return new ProductDTOPatchRequest(
+            "name", ProductCategory.BEBIDAS, "description",
+            "image.png", BigDecimal.valueOf(5.0), 
+            BigDecimal.valueOf(0.0), Boolean.TRUE, Boolean.FALSE
+        );
+    }
+
+    static ProductDTOPatchRequest sampleNameUpdateReq() {
+        return new ProductDTOPatchRequest(
+            "name updated", null, null, 
+            null, null,null, 
+            null, null
+        );
+    }
+
+    static ProductDTOPatchRequest sampleAvailableUpdateReq() {
+        return new ProductDTOPatchRequest(
+            null, null, null, 
+            null, null, null, 
+            Boolean.FALSE, null
+        );
+    }
+
+    static ProductDTOPatchRequest sampleExclusiveUpdateReq() {
+        return new ProductDTOPatchRequest(
+            null, null, null, 
+            null, null, null, 
+            null, Boolean.TRUE
+        );
+    }
 }

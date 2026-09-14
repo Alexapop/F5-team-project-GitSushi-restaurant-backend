@@ -249,4 +249,32 @@ public class ProductControllerTest {
 
     }
 
+
+    @Test 
+    void testStore_shouldStoreTheProduct() throws Exception {
+
+        ProductDTOResponse mockItem = mockProducts.get(3);
+        // Java Roll
+        
+        String json = mapper.writeValueAsString(mockItem);
+
+        when(service.getById(4L)).thenReturn(mockItem);
+        MockHttpServletResponse response = mockMvc.perform(get("/api/v1/products/4"))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse();
+
+        ProductDTOResponse respDTO = mapper.readValue(
+            response.getContentAsString(),
+            new TypeReference<ProductDTOResponse>() {}
+        );
+
+        assertThat(response.getContentAsString(), is(equalTo(json)));
+        assertThat(respDTO, is(equalTo(mockItem)));
+        assertThat(response.getStatus(), is(equalTo(HttpStatus.OK.value())));
+        assertThat(respDTO.id(), is(equalTo(4L)));
+        assertThat(respDTO.name(), is(equalTo("Java Roll")));
+
+    }
+
 }
