@@ -1,0 +1,124 @@
+package dev.team1.orders;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
+import dev.team1.enums.OrderChannel;
+import dev.team1.enums.OrderStatus;
+import dev.team1.enums.PaymentMethod;
+import dev.team1.orders.dtos.OrderDTORequest;
+import dev.team1.orders.dtos.OrderDTOResponse;
+import dev.team1.products.ProductEntity;
+import dev.team1.products.ProductRepository;
+
+@ExtendWith(MockitoExtension.class)
+class OrderServiceTest {
+
+    @Mock
+    private OrderRepository orderRepository;
+
+    @Mock
+    private ProductRepository productRepository;
+
+    @InjectMocks
+    private OrderService service;
+
+    @Test
+    void createOrderWithoutDiscountCalculatesTotalsAndSavesOrderLines() {
+        ProductEntity product = product(null);
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
+        OrderDTORequest request = new OrderDTORequest(
+            List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
+            "No onions", OrderChannel.ONSITE, PaymentMethod.CREDITCARD);
+
+        OrderDTOResponse response = service.createOrder(request);
+
+        assertEquals(new BigDecimal("20.00"), response.subtotal());
+        assertEquals(new BigDecimal("0.00"), response.discountAmount());
+        assertEquals(new BigDecimal("2.00"), response.vatAmount());
+        assertEquals(new BigDecimal("22.00"), response.total());
+        assertEquals(OrderStatus.PLACED, response.status());
+        ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(captor.capture());
+        OrderEntity savedOrder = captor.getValue();
+        assertEquals("No onions", savedOrder.getChefNote());
+        assertEquals(OrderChannel.ONSITE, savedOrder.getChannel());
+        assertEquals(PaymentMethod.CREDITCARD, savedOrder.getPaymentMethod());
+        assertEquals(1, savedOrder.getOrderProducts().size());
+        assertSame(product, savedOrder.getOrderProducts().get(0).getProduct());
+        assertSame(savedOrder, savedOrder.getOrderProducts().get(0).getOrder());
+        assertEquals(new BigDecimal("2"), savedOrder.getOrderProducts().get(0).getQuantity());
+    }
+
+    @Test
+    void createOrderAppliesDiscountBeforeVat() {
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product(new BigDecimal("10"))));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
+        OrderDTORequest request = new OrderDTORequest(
+            List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
+            null, OrderChannel.ONSITE, PaymentMethod.CASH);
+
+        OrderDTOResponse response = service.createOrder(request);
+
+        assertEquals(new BigDecimal("20.00"), response.subtotal());
+        assertEquals(new BigDecimal("2.00"), response.discountAmount());
+        assertEquals(new BigDecimal("1.80"), response.vatAmount());
+        assertEquals(new BigDecimal("19.80"), response.total());
+        assertEquals(OrderStatus.PLACED, response.status());
+        assertEquals(OrderChannel.ONSITE, response.channel());
+        assertEquals(PaymentMethod.CASH, response.paymentMethod());
+    }
+
+    @Test
+    void markAsPaidUpdatesAndSavesPlacedOrder() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PLACED);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        OrderDTOResponse response = service.markAsPaid(1L);
+
+        assertEquals(OrderStatus.PAID, order.getStatus());
+        assertEquals(OrderStatus.PAID, response.status());
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void markAsPaidRejectsDeliveredOrderWithoutSaving() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.DELIVERED);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsPaid(1L));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    private ProductEntity product(BigDecimal discount) {
+        return new ProductEntity(2L, "Sushi", null, "Salmon sushi", "sushi.png",
+                new BigDecimal("10.00"), discount, true, false, new ArrayList<>());
+    }
+}

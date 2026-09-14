@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import dev.team1.enums.OrderStatus;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.orders_products.OrderProductEntity;
@@ -45,12 +46,12 @@ public class OrderService {
             BigDecimal quantity = BigDecimal.valueOf(item.quantity());
 
             OrderProductEntity op = OrderProductEntity.builder()
-                .order(order)
-                .product(product)
-                .quantity(quantity)
-                .build();
+                    .order(order)
+                    .product(product)
+                    .quantity(quantity)
+                    .build();
             ops.add(op);
-            
+
             BigDecimal productSubtotal = product.getPrice().multiply(quantity)
                     .setScale(2, RoundingMode.HALF_UP);
             BigDecimal productDiscount = calculateDiscount(product, productSubtotal);
@@ -68,7 +69,7 @@ public class OrderService {
         BigDecimal total = subtotalAfterDiscount.add(vatAmount);
 
         // 3. Save the order and return its data.
-        
+
         order.setSubtotal(subtotal);
         // Product discounts can differ, so there is no single order discount rate.
         order.setDiscountRate(null);
@@ -78,8 +79,10 @@ public class OrderService {
         order.setTotal(total);
         order.setChefNote(request.chefNote());
         order.setOrderProducts(ops);
+        order.setChannel(request.channel());
+        order.setPaymentMethod(request.paymentMethod());
+        order.setStatus(OrderStatus.PLACED);
 
-        // Order lines must be persisted once the OrderProduct mapping exists.
         OrderEntity savedOrder = orderRepository.save(order);
         return toResponse(savedOrder);
     }
@@ -114,6 +117,48 @@ public class OrderService {
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
     }
 
+    @Transactional
+    public OrderDTOResponse markAsPaid(Long orderId) {
+        OrderEntity order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Order not found: " + orderId));
+
+        if (order.getStatus() == OrderStatus.PAID) {
+            return toResponse(order);
+        }
+
+        if (order.getStatus() != OrderStatus.PLACED) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Order cannot be marked as paid from status: "
+                            + order.getStatus());
+        }
+
+        order.setStatus(OrderStatus.PAID);
+        OrderEntity savedOrder = orderRepository.save(order);
+        return toResponse(savedOrder);
+    }
+
+    @Transactional(readOnly = true)
+    public OrderDTOResponse getById(Long id) {
+        OrderEntity order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Order not found: " + id));
+
+        return toResponse(order);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderDTOResponse> getByStatus(OrderStatus status) {
+        List<OrderEntity> orders = orderRepository.findByStatus(status);
+
+        return orders.stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     private OrderDTOResponse toResponse(OrderEntity savedOrder) {
         return new OrderDTOResponse(
                 savedOrder.getId(),
@@ -123,6 +168,9 @@ public class OrderService {
                 savedOrder.getVatRate(),
                 savedOrder.getTotal(),
                 savedOrder.getVatAmount(),
-                savedOrder.getChefNote());
+                savedOrder.getChefNote(),
+                savedOrder.getStatus(),
+                savedOrder.getChannel(),
+                savedOrder.getPaymentMethod());
     }
 }
