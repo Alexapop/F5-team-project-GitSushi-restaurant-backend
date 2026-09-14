@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -20,7 +21,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import dev.team1.config.SecurityConfiguration;
+import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
+import dev.team1.enums.PaymentMethod;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 
@@ -37,20 +40,56 @@ class OrderControllerTest {
     @Test
     void createOrderReturnsCreatedOrder() throws Exception {
         OrderDTORequest request = new OrderDTORequest(
-                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)), "No onions");
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
+                "No onions", OrderChannel.ONSITE, PaymentMethod.CREDITCARD);
         when(service.createOrder(request)).thenReturn(response(OrderStatus.PLACED));
 
         mockMvc.perform(post("/api/v1/orders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"items":[{"productId":2,"quantity":2}],"chefNote":"No onions"}
+                                {"items":[{"productId":2,"quantity":2}],"chefNote":"No onions","channel":"ONSITE","paymentMethod":"CREDITCARD"}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.status").value("PLACED"))
+                                .andExpect(jsonPath("$.channel").value("ONSITE"))
+                                .andExpect(jsonPath("$.paymentMethod").value("CREDITCARD"))
                 .andExpect(jsonPath("$.total").value(22.0));
         verify(service).createOrder(request);
     }
+
+        @Test
+        void createOrderRejectsMissingChannel() throws Exception {
+                mockMvc.perform(post("/api/v1/orders")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content("""
+                                                                {"items":[{"productId":2,"quantity":2}],"paymentMethod":"CASH"}
+                                                                """))
+                                .andExpect(status().isBadRequest());
+                verifyNoInteractions(service);
+        }
+
+        @Test
+        void createOrderRejectsMissingPaymentMethod() throws Exception {
+                mockMvc.perform(post("/api/v1/orders")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content("""
+                                                                {"items":[{"productId":2,"quantity":2}],"channel":"ONSITE"}
+                                                                """))
+                                .andExpect(status().isBadRequest());
+                verifyNoInteractions(service);
+        }
+
+        @Test
+        void createOrderRejectsInvalidEnumValue() throws Exception {
+                mockMvc.perform(post("/api/v1/orders")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content("""
+                                                                {"items":[{"productId":2,"quantity":2}],"channel":"RESTAURANT","paymentMethod":"CASH"}
+                                                                """))
+                                .andExpect(status().isBadRequest());
+                verifyNoInteractions(service);
+        }
 
     @Test
     void markAsPaidReturnsPaidOrder() throws Exception {
@@ -90,6 +129,7 @@ class OrderControllerTest {
     private OrderDTOResponse response(OrderStatus orderStatus) {
         return new OrderDTOResponse(1L, new BigDecimal("20.00"), null,
                 new BigDecimal("0.00"), 10, new BigDecimal("22.00"),
-                new BigDecimal("2.00"), "No onions", orderStatus);
+                new BigDecimal("2.00"), "No onions", orderStatus,
+                OrderChannel.ONSITE, PaymentMethod.CREDITCARD);
     }
 }

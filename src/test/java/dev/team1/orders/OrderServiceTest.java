@@ -22,7 +22,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
+import dev.team1.enums.PaymentMethod;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.products.ProductEntity;
@@ -46,7 +48,8 @@ class OrderServiceTest {
         when(productRepository.findById(2L)).thenReturn(Optional.of(product));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
-                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)), "No onions");
+            List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
+            "No onions", OrderChannel.ONSITE, PaymentMethod.CREDITCARD);
 
         OrderDTOResponse response = service.createOrder(request);
 
@@ -59,6 +62,8 @@ class OrderServiceTest {
         verify(orderRepository).save(captor.capture());
         OrderEntity savedOrder = captor.getValue();
         assertEquals("No onions", savedOrder.getChefNote());
+        assertEquals(OrderChannel.ONSITE, savedOrder.getChannel());
+        assertEquals(PaymentMethod.CREDITCARD, savedOrder.getPaymentMethod());
         assertEquals(1, savedOrder.getOrderProducts().size());
         assertSame(product, savedOrder.getOrderProducts().get(0).getProduct());
         assertSame(savedOrder, savedOrder.getOrderProducts().get(0).getOrder());
@@ -70,7 +75,8 @@ class OrderServiceTest {
         when(productRepository.findById(2L)).thenReturn(Optional.of(product(new BigDecimal("10"))));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
-                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)), null);
+            List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
+            null, OrderChannel.ONSITE, PaymentMethod.CASH);
 
         OrderDTOResponse response = service.createOrder(request);
 
@@ -79,6 +85,8 @@ class OrderServiceTest {
         assertEquals(new BigDecimal("1.80"), response.vatAmount());
         assertEquals(new BigDecimal("19.80"), response.total());
         assertEquals(OrderStatus.PLACED, response.status());
+        assertEquals(OrderChannel.ONSITE, response.channel());
+        assertEquals(PaymentMethod.CASH, response.paymentMethod());
     }
 
     @Test
