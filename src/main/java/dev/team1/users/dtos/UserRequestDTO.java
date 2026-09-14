@@ -1,57 +1,17 @@
-package dev.team1.users;
+package dev.team1.users.dtos;
 
-import dev.team1.roles.RoleEntity;
-import jakarta.persistence.*;
+public class UserRequestDTO {
 
-import java.util.HashSet;
-import java.util.Set;
-
-@Entity
-@Table(name = "users")
-public class UserEntity {
-
-@Id
-@GeneratedValue(strategy = GenerationType.IDENTITY)
-private Long id;
-
-    @Column(name = "first_name", nullable = false)
     private String firstName;
-
-    @Column(name = "last_name", nullable = false)
     private String lastName;
-
-    @Column(nullable = false, unique = true)
     private String email;
-
-    // TODO (Sprint 2): will be hashed with BCryptPasswordEncoder once security work starts.
-    // For now stored as plain text via a no-op encoder (see PasswordEncoderPort).
-    @Column(nullable = false)
     private String password;
-
-    @Column(nullable = false)
     private String address;
-
-    @Column(name = "postal_code", nullable = false)
     private String postalCode;
-
-    @Column(nullable = false)
     private String city;
 
-    @ManyToMany
-    @JoinTable(
-        name = "users_roles",
-        joinColumns = @JoinColumn(name = "id_user"),
-        inverseJoinColumns = @JoinColumn(name = "id_role")
-    )
-    private Set<RoleEntity> roles = new HashSet<>();
-
-    public UserEntity() {
+    public UserRequestDTO() {
     }
-
-    public Long getId() {
-    return id;
-}
-
 
     public String getFirstName() {
         return firstName;
@@ -107,13 +67,5 @@ private Long id;
 
     public void setCity(String city) {
         this.city = city;
-    }
-
-    public Set<RoleEntity> getRoles() {
-        return roles;
-    }
-
-    public void setRoles(Set<RoleEntity> roles) {
-        this.roles = roles;
     }
 }
