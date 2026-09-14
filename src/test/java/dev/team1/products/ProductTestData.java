@@ -188,20 +188,20 @@ public class ProductTestData {
             BigDecimal.valueOf(0.0), true, false
         );
     }
-    
-    static ProductDTOPatchRequest samplePATCHFullRequestDTO() {
-        return new ProductDTOPatchRequest(
-            "name", ProductCategory.BEBIDAS, "description",
-            "image.png", BigDecimal.valueOf(5.0), 
-            BigDecimal.valueOf(0.0), Boolean.TRUE, Boolean.FALSE
-        );
-    }
 
     static ProductDTOPatchRequest sampleNameUpdateReq() {
         return new ProductDTOPatchRequest(
             "name updated", null, null, 
             null, null,null, 
             null, null
+        );
+    }
+
+    static ProductDTOResponse samplePATCHResponseDTO() {
+        return new ProductDTOResponse(
+            1L, "name updated", ProductCategory.BEBIDAS, "description",
+            "image.png", BigDecimal.valueOf(5.0), 
+            BigDecimal.valueOf(0.0), false, false
         );
     }
 
@@ -213,11 +213,4 @@ public class ProductTestData {
         );
     }
 
-    static ProductDTOPatchRequest sampleExclusiveUpdateReq() {
-        return new ProductDTOPatchRequest(
-            null, null, null, 
-            null, null, null, 
-            null, Boolean.TRUE
-        );
-    }
 }

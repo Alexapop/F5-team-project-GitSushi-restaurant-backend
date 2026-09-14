@@ -3,9 +3,10 @@ package dev.team1.products;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.equalTo;
-
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
 import dev.team1.config.SecurityConfiguration;
 import dev.team1.contracts.IProductService;
 import dev.team1.enums.ProductCategory;
+import dev.team1.products.dtos.ProductDTOPatchRequest;
 import dev.team1.products.dtos.ProductDTORequest;
 import dev.team1.products.dtos.ProductDTOResponse;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
@@ -293,6 +295,54 @@ public class ProductControllerTest {
         assertThat(response.getStatus(), is(equalTo(HttpStatus.CREATED.value())));
         assertThat(respDTO.name(), is(equalTo("name")));
 
+    }
+
+    @Test 
+    void testUpdate_shouldUpdateAnyFields() throws Exception {
+
+        ProductDTOPatchRequest mockReqDTO = ProductTestData.sampleNameUpdateReq();
+        ProductDTOResponse mockRespDTO = ProductTestData.samplePATCHResponseDTO();
+
+        String reqJson = """
+                {
+                    "name": "name updated"
+                }
+                """;
+
+        when(service.update(1L, mockReqDTO)).thenReturn(mockRespDTO);
+        MockHttpServletResponse response = mockMvc.perform(patch("/api/v1/products/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(reqJson))
+            .andExpect(status().is(200))
+            .andReturn()
+            .getResponse();
+
+        verify(service).update(1L, mockReqDTO);
+        assertThat(response.getStatus(), is(equalTo(HttpStatus.OK.value())));
+    }
+
+    @Test 
+    void testUpdate_shouldUpdateAvailableField() throws Exception {
+
+        ProductDTOPatchRequest mockReqDTO = ProductTestData.sampleAvailableUpdateReq();
+        ProductDTOResponse mockRespDTO = ProductTestData.samplePATCHResponseDTO();
+
+        String reqJson = """
+                {
+                    "available": false
+                }
+                """;
+
+        when(service.update(1L, mockReqDTO)).thenReturn(mockRespDTO);
+        MockHttpServletResponse response = mockMvc.perform(patch("/api/v1/products/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(reqJson))
+            .andExpect(status().is(200))
+            .andReturn()
+            .getResponse();
+
+        verify(service).update(1L, mockReqDTO);
+        assertThat(response.getStatus(), is(equalTo(HttpStatus.OK.value())));
     }
 
 }
