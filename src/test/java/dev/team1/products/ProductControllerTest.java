@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.equalTo;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 import dev.team1.config.SecurityConfiguration;
 import dev.team1.contracts.IProductService;
 import dev.team1.enums.ProductCategory;
+import dev.team1.products.dtos.ProductDTORequest;
 import dev.team1.products.dtos.ProductDTOResponse;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
 import tools.jackson.core.type.TypeReference;
@@ -253,14 +255,31 @@ public class ProductControllerTest {
     @Test 
     void testStore_shouldStoreTheProduct() throws Exception {
 
-        ProductDTOResponse mockItem = mockProducts.get(3);
-        // Java Roll
-        
-        String json = mapper.writeValueAsString(mockItem);
+        ProductDTORequest mockReqDTO = ProductTestData.samplePOSTRequestDTO();
+        ProductDTOResponse mockRespDTO = ProductTestData.samplePOSTResponseDTO();
 
-        when(service.getById(4L)).thenReturn(mockItem);
-        MockHttpServletResponse response = mockMvc.perform(get("/api/v1/products/4"))
-            .andExpect(status().isOk())
+        String expectedJson = mapper.writeValueAsString(mockRespDTO);
+
+        String reqJson = """
+                {
+                    "name": "name",
+                    "category": "BEBIDAS",
+                    "description": "description",
+                    "price": 5.0,
+                    "discount": 0.0,
+                    "imageUrl": "image.png",
+                    "available": true,
+                    "exclusive": false
+                }
+                """;
+
+        System.out.println(mapper.writeValueAsString(mockReqDTO));
+
+        when(service.store(mockReqDTO)).thenReturn(mockRespDTO);
+        MockHttpServletResponse response = mockMvc.perform(post("/api/v1/products")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(reqJson))
+            .andExpect(status().is(201))
             .andReturn()
             .getResponse();
 
@@ -269,11 +288,10 @@ public class ProductControllerTest {
             new TypeReference<ProductDTOResponse>() {}
         );
 
-        assertThat(response.getContentAsString(), is(equalTo(json)));
-        assertThat(respDTO, is(equalTo(mockItem)));
-        assertThat(response.getStatus(), is(equalTo(HttpStatus.OK.value())));
-        assertThat(respDTO.id(), is(equalTo(4L)));
-        assertThat(respDTO.name(), is(equalTo("Java Roll")));
+        assertThat(response.getContentAsString(), is(equalTo(expectedJson)));
+        assertThat(respDTO, is(equalTo(mockRespDTO)));
+        assertThat(response.getStatus(), is(equalTo(HttpStatus.CREATED.value())));
+        assertThat(respDTO.name(), is(equalTo("name")));
 
     }
 

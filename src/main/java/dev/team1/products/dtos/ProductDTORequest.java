@@ -28,7 +28,7 @@ public record ProductDTORequest(
     BigDecimal price,
     
     @NonNull 
-    @DecimalMin(value = "0.0", inclusive = false)
+    @DecimalMin(value = "0.0", inclusive = true)
     @DecimalMax(value = "100.0")
     @Digits(integer = 3, fraction = 2, message = "El campo 'discount' debe estar en formato de porcentaje")
     BigDecimal discount,

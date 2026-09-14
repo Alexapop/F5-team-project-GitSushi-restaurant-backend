@@ -15,8 +15,6 @@ import org.junit.jupiter.api.Test;
 import dev.team1.enums.ProductCategory;
 import dev.team1.orders_products.OrderProductEntity;
 
-import lombok.Builder;
-
 public class ProductEntityTest {
 
     @Test

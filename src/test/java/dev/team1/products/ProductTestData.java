@@ -180,6 +180,14 @@ public class ProductTestData {
             BigDecimal.valueOf(0.0), true, false
         );
     }
+
+    static ProductDTOResponse samplePOSTResponseDTO() {
+        return new ProductDTOResponse(
+            1L, "name", ProductCategory.BEBIDAS, "description",
+            "image.png", BigDecimal.valueOf(5.0), 
+            BigDecimal.valueOf(0.0), true, false
+        );
+    }
     
     static ProductDTOPatchRequest samplePATCHFullRequestDTO() {
         return new ProductDTOPatchRequest(
