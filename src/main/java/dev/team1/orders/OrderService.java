@@ -79,6 +79,8 @@ public class OrderService {
         order.setTotal(total);
         order.setChefNote(request.chefNote());
         order.setOrderProducts(ops);
+        order.setChannel(request.channel());
+        order.setPaymentMethod(request.paymentMethod());
         order.setStatus(OrderStatus.PLACED);
 
         OrderEntity savedOrder = orderRepository.save(order);
@@ -167,6 +169,8 @@ public class OrderService {
                 savedOrder.getTotal(),
                 savedOrder.getVatAmount(),
                 savedOrder.getChefNote(),
-                savedOrder.getStatus());
+                savedOrder.getStatus(),
+                savedOrder.getChannel(),
+                savedOrder.getPaymentMethod());
     }
 }
