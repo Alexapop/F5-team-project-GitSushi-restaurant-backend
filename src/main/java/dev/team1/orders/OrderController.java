@@ -19,7 +19,7 @@ import dev.team1.orders.dtos.OrderDTOResponse;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("${api-endpoint}/orders")
+@RequestMapping(path ="${api-endpoint}/orders")
 public class OrderController {
 
     private final OrderService orderService;
