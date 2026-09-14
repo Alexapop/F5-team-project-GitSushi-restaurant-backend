@@ -4,7 +4,9 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
+import dev.team1.enums.PaymentMethod;
 import dev.team1.orders_products.OrderProductEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -50,10 +52,18 @@ public class OrderEntity {
     private BigDecimal total;
 
     private String chefNote;
-    
+
     @Enumerated(EnumType.STRING)
-    @Column (nullable = false)
+    @Column(nullable = false)
     private OrderStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OrderChannel channel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PaymentMethod paymentMethod;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderProductEntity> orderProducts = new ArrayList<>();
