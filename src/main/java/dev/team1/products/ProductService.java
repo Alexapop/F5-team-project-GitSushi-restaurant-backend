@@ -6,8 +6,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import dev.team1.contracts.IProductService;
+import dev.team1.contracts.ProductAvailableDTO;
 import dev.team1.enums.ProductCategory;
 import dev.team1.mappers.ProductMapper;
+import dev.team1.products.dtos.ProductDTORequest;
 import dev.team1.products.dtos.ProductDTOResponse;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
 
@@ -53,6 +55,24 @@ public class ProductService implements IProductService {
         Page<ProductEntity> pageEntity = productsRepository.findByCategory(category, pageable);
         
         return pageEntity.map(ProductMapper::toDTO);
+    }
+
+    @Override
+    public ProductDTOResponse store(ProductDTORequest requestDTO) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public ProductDTOResponse update(ProductDTORequest requestDTO) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public void updadeAvailability(ProductAvailableDTO dto) {
+        // TODO Auto-generated method stub
+        
     }
 
 }
