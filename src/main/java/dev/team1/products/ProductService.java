@@ -2,8 +2,10 @@ package dev.team1.products;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import dev.team1.contracts.IProductService;
 import dev.team1.products.dtos.ProductAvailableDTO;
@@ -60,6 +62,11 @@ public class ProductService implements IProductService {
 
     @Override
     public ProductDTOResponse store(ProductDTORequest requestDTO) {
+        if (productsRepository.existsByName(requestDTO.name())) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST, "Product already exists.");
+        }
+        
         ProductEntity entity = ProductMapper.toEntity(requestDTO);
 
         ProductEntity savedEntity = productsRepository.save(entity);
@@ -85,6 +92,5 @@ public class ProductService implements IProductService {
         
     }
 
-    
 
 }
