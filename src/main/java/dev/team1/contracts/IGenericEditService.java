@@ -4,6 +4,6 @@ public interface IGenericEditService<T, S> {
 
     public S store(T requestDTO);
 
-    public S update(T requestDTO);
+    public S update(Long id, T requestDTO);
 
 }

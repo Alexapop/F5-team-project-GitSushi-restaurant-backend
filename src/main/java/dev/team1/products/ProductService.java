@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import dev.team1.contracts.IProductService;
-import dev.team1.contracts.ProductAvailableDTO;
+import dev.team1.products.dtos.ProductAvailableDTO;
 import dev.team1.enums.ProductCategory;
 import dev.team1.mappers.ProductMapper;
 import dev.team1.products.dtos.ProductDTORequest;
@@ -59,12 +59,15 @@ public class ProductService implements IProductService {
 
     @Override
     public ProductDTOResponse store(ProductDTORequest requestDTO) {
-        // TODO Auto-generated method stub
-        return null;
+        ProductEntity entity = ProductMapper.toEntity(requestDTO);
+
+        ProductEntity savedEntity = productsRepository.save(entity);
+
+        return ProductMapper.toDTO(savedEntity);
     }
 
     @Override
-    public ProductDTOResponse update(ProductDTORequest requestDTO) {
+    public ProductDTOResponse update(Long id, ProductDTORequest requestDTO) {
         // TODO Auto-generated method stub
         return null;
     }

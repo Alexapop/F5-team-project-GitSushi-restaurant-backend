@@ -65,7 +65,7 @@ public class ProductController {
     @PostMapping("")
     public ResponseEntity<ProductDTOResponse> store(@Valid @RequestBody ProductDTORequest dto) {
         return ResponseEntity.status(201).body(
-            productsService.storeProduct(dto)
+            productsService.store(dto)
         ).build();
     }
     
