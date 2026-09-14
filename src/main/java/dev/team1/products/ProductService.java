@@ -9,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import dev.team1.contracts.IProductService;
 import dev.team1.products.dtos.ProductAvailableDTO;
+import dev.team1.products.dtos.ProductDTOPatchRequest;
 import dev.team1.enums.ProductCategory;
 import dev.team1.mappers.ProductMapper;
 import dev.team1.products.dtos.ProductDTORequest;
@@ -75,7 +76,7 @@ public class ProductService implements IProductService {
     }
 
     @Override
-    public ProductDTOResponse update(Long id, ProductDTORequest requestDTO) {
+    public ProductDTOResponse update(Long id, ProductDTOPatchRequest requestDTO) {
         ProductEntity originalEntity = productsRepository.findById(id)
             .orElseThrow(() -> new ProductExceptionNotFound(
                 "Product " + id + " is not found"
@@ -85,28 +86,5 @@ public class ProductService implements IProductService {
         ProductEntity saved = productsRepository.save(updated);
         return ProductMapper.toDTO(saved);
     }
-
-    @Override
-    public void updadeAvailability(Long id, ProductAvailableDTO dto) {
-        ProductEntity entity = productsRepository.findById(id)
-            .orElseThrow(() -> new ProductExceptionNotFound(
-                "Product " + id + " is not found"
-            ));
-
-        entity.setAvailable(dto.available());
-        productsRepository.save(entity);
-    }
-
-    @Override
-    public void updadeExclusive(Long id, ProductExclusiveDTO dto) {
-        ProductEntity entity = productsRepository.findById(id)
-            .orElseThrow(() -> new ProductExceptionNotFound(
-                "Product " + id + " is not found"
-            ));
-
-        entity.setExclusive(dto.exclusive());
-        productsRepository.save(entity);
-    }
-
 
 }

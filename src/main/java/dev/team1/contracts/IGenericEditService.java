@@ -1,9 +1,10 @@
 package dev.team1.contracts;
 
-public interface IGenericEditService<T, S> {
+// C - create DTO, U - update DTO, T - response DTO
+public interface IGenericEditService<C, U, T> {
 
-    public S store(T requestDTO);
+    public T store(C requestDTO);
 
-    public S update(Long id, T requestDTO);
+    public T update(Long id, U requestDTO);
 
 }

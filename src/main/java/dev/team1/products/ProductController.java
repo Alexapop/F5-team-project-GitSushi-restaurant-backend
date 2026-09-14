@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RestController;
 import dev.team1.contracts.IProductService;
 import dev.team1.enums.ProductCategory;
 import dev.team1.products.dtos.ProductAvailableDTO;
+import dev.team1.products.dtos.ProductDTOPatchRequest;
 import dev.team1.products.dtos.ProductDTORequest;
 import dev.team1.products.dtos.ProductDTOResponse;
 import dev.team1.products.dtos.ProductExclusiveDTO;
@@ -73,23 +74,10 @@ public class ProductController {
     }
 
     @PatchMapping("{id}")
-    public ResponseEntity<ProductDTOResponse> update(@PathVariable Long id, @Valid @RequestBody ProductDTORequest dto) {
+    public ResponseEntity<ProductDTOResponse> update(@PathVariable Long id, @Valid @RequestBody ProductDTOPatchRequest dto) {
         return ResponseEntity.ok(
             productsService.update(id, dto)
         );
-    }
-
-    @PatchMapping("{id}/availability")
-    public ResponseEntity<Void> updateAvailability(@PathVariable Long id, @Valid @RequestBody ProductAvailableDTO dto) {
-        productsService.updadeAvailability(id, dto);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PatchMapping("{id}/exclusive")
-    public ResponseEntity<Void> updateExclusive(@PathVariable Long id, @Valid @RequestBody ProductExclusiveDTO dto) {
-        productsService.updadeExclusive(id, dto);
-        return ResponseEntity.noContent().build();
-    }
-    
+    }    
 
 }

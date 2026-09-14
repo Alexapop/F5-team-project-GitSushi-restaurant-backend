@@ -16,21 +16,25 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity 
 @Table(name = "products", uniqueConstraints = @UniqueConstraint(columnNames = "name"))
 @NoArgsConstructor 
 @AllArgsConstructor
 @Getter
+@Setter 
 public class ProductEntity {
 
     @Id 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
+    @Setter(AccessLevel.NONE)
     private Long id;
     
     @Column(name = "name", nullable = false, length = 50, unique = true)
@@ -71,14 +75,6 @@ public class ProductEntity {
         this.price = price;
         this.discount = discount;
         this.available = available;
-        this.exclusive = exclusive;
-    }
-
-    public void setAvailable(boolean available) {
-        this.available = available;
-    }
-
-    public void setExclusive(boolean exclusive) {
         this.exclusive = exclusive;
     }
 
