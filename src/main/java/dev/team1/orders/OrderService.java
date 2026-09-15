@@ -14,6 +14,8 @@ import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
+import dev.team1.orders.dtos.KitchenOrderDTOResponse;
+import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
@@ -179,6 +181,31 @@ public class OrderService {
         return orders.stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+        @Transactional(readOnly = true)
+    public List<KitchenOrderDTOResponse> getActiveKitchenOrders() {
+        List<OrderEntity> orders = orderRepository.findByStatusIn(
+                List.of(OrderStatus.PLACED, OrderStatus.PROCESSING, OrderStatus.DELAYED));
+
+        return orders.stream()
+                .map(this::toKitchenResponse)
+                .toList();
+    }
+
+    private KitchenOrderDTOResponse toKitchenResponse(OrderEntity order) {
+        List<KitchenOrderItemDTO> items = order.getOrderProducts().stream()
+                .map(op -> new KitchenOrderItemDTO(
+                        op.getProduct().getName(),
+                        op.getQuantity()))
+                .toList();
+
+        return new KitchenOrderDTOResponse(
+                order.getId(),
+                order.getStatus(),
+                order.getChefNote(),
+                order.getCreatedAt(),
+                items);
     }
 
     private OrderDTOResponse toResponse(OrderEntity savedOrder) {
