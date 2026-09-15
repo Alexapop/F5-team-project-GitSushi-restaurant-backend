@@ -241,6 +241,11 @@ public class OrderService {
     }
 
     private void validateKitchenStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {
+        if (newStatus == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Kitchen status is required");
+        }
+
         List<OrderStatus> allowedKitchenStatuses = List.of(
                 OrderStatus.PROCESSING, OrderStatus.DELAYED, OrderStatus.READY);
 

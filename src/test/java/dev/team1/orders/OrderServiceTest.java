@@ -302,4 +302,38 @@ class OrderServiceTest {
 
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
     }
+        @Test
+    void getActiveKitchenOrdersReturnsEmptyListWhenNoActiveOrders() {
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of());
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders();
+
+        assertEquals(0, result.size());
+    }
+
+    @Test
+    void updateKitchenStatusRejectsNullStatus() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PLACED);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.updateKitchenStatus(1L, null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void updateKitchenStatusOntheWayOrderThrowsConflict() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.updateKitchenStatus(1L, OrderStatus.READY));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
 }
