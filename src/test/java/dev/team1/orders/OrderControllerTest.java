@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
 import dev.team1.config.SecurityConfiguration;
 import dev.team1.enums.OrderChannel;
@@ -42,10 +43,11 @@ class OrderControllerTest {
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
                 "No onions", OrderChannel.ONSITE, PaymentMethod.CREDITCARD);
-        when(service.createOrder(request)).thenReturn(response(OrderStatus.PLACED));
+        when(service.createOrder(request, "tablet-12")).thenReturn(response(OrderStatus.PLACED));
 
         mockMvc.perform(post("/api/v1/orders")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("Device-Identifier", "tablet-12")
                         .content("""
                                 {"items":[{"productId":2,"quantity":2}],"chefNote":"No onions","channel":"ONSITE","paymentMethod":"CREDITCARD"}
                                 """))
@@ -54,8 +56,81 @@ class OrderControllerTest {
                 .andExpect(jsonPath("$.status").value("PLACED"))
                                 .andExpect(jsonPath("$.channel").value("ONSITE"))
                                 .andExpect(jsonPath("$.paymentMethod").value("CREDITCARD"))
+                                .andExpect(jsonPath("$.tableNumber").value(12))
                 .andExpect(jsonPath("$.total").value(22.0));
-        verify(service).createOrder(request);
+        verify(service).createOrder(request, "tablet-12");
+    }
+
+    @Test
+    void createOrderPassesDeviceIdentifierToService() throws Exception {
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONSITE, PaymentMethod.CASH);
+        when(service.createOrder(request, "tablet-7")).thenReturn(response(OrderStatus.PLACED));
+
+        mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Device-Identifier", "tablet-7")
+                        .content("""
+                                {"items":[{"productId":2,"quantity":1}],"channel":"ONSITE","paymentMethod":"CASH"}
+                                """))
+                .andExpect(status().isCreated());
+
+        verify(service).createOrder(request, "tablet-7");
+    }
+
+    @Test
+    void createOnlineOrderPassesMissingDeviceIdentifierToService() throws Exception {
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONLINE, PaymentMethod.CREDITCARD);
+        when(service.createOrder(request, null)).thenReturn(response(OrderStatus.PLACED));
+
+        mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"items":[{"productId":2,"quantity":1}],"channel":"ONLINE","paymentMethod":"CREDITCARD"}
+                                """))
+                .andExpect(status().isCreated());
+
+        verify(service).createOrder(request, null);
+    }
+
+    @Test
+    void createOnsiteOrderReturnsBadRequestWhenDeviceIdentifierIsMissing() throws Exception {
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONSITE, PaymentMethod.CASH);
+        when(service.createOrder(request, null)).thenThrow(new ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Device identifier is required"));
+
+        mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"items":[{"productId":2,"quantity":1}],"channel":"ONSITE","paymentMethod":"CASH"}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verify(service).createOrder(request, null);
+    }
+
+    @Test
+    void createOnsiteOrderReturnsNotFoundWhenDeviceIsUnknown() throws Exception {
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONSITE, PaymentMethod.CASH);
+        when(service.createOrder(request, "unknown-device")).thenThrow(new ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "No table found for the given device."));
+
+        mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Device-Identifier", "unknown-device")
+                        .content("""
+                                {"items":[{"productId":2,"quantity":1}],"channel":"ONSITE","paymentMethod":"CASH"}
+                                """))
+                .andExpect(status().isNotFound());
+
+        verify(service).createOrder(request, "unknown-device");
     }
 
         @Test
@@ -130,6 +205,6 @@ class OrderControllerTest {
         return new OrderDTOResponse(1L, new BigDecimal("20.00"), null,
                 new BigDecimal("0.00"), 10, new BigDecimal("22.00"),
                 new BigDecimal("2.00"), "No onions", orderStatus,
-                OrderChannel.ONSITE, PaymentMethod.CREDITCARD);
+                OrderChannel.ONSITE, PaymentMethod.CREDITCARD, 12);
     }
 }
