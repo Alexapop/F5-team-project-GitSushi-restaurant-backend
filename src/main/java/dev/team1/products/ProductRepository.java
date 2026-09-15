@@ -17,4 +17,5 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>{
     @Query("select p from ProductEntity p where p.category = ?1 and p.available = TRUE")
     public Page<ProductEntity> findByCategory(ProductCategory category, Pageable pegeable);
 
+    public boolean existsByName(String name);
 }

@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import dev.team1.enums.ProductCategory;
+import dev.team1.products.dtos.ProductDTOPatchRequest;
+import dev.team1.products.dtos.ProductDTORequest;
 import dev.team1.products.dtos.ProductDTOResponse;
 
 public class ProductTestData {
@@ -168,6 +170,46 @@ public class ProductTestData {
                 BigDecimal.valueOf(0.0), 
                 true, false, new ArrayList<>()
             )
+        );
+    }
+
+    static ProductDTORequest samplePOSTRequestDTO() {
+        return new ProductDTORequest(
+            "name", ProductCategory.BEBIDAS, "description",
+            "image.png", BigDecimal.valueOf(5.0), 
+            BigDecimal.valueOf(0.0), true, false
+        );
+    }
+
+    static ProductDTOResponse samplePOSTResponseDTO() {
+        return new ProductDTOResponse(
+            1L, "name", ProductCategory.BEBIDAS, "description",
+            "image.png", BigDecimal.valueOf(5.0), 
+            BigDecimal.valueOf(0.0), true, false
+        );
+    }
+
+    static ProductDTOPatchRequest sampleNameUpdateReq() {
+        return new ProductDTOPatchRequest(
+            "name updated", null, null, 
+            null, null,null, 
+            null, null
+        );
+    }
+
+    static ProductDTOResponse samplePATCHResponseDTO() {
+        return new ProductDTOResponse(
+            1L, "name updated", ProductCategory.BEBIDAS, "description",
+            "image.png", BigDecimal.valueOf(5.0), 
+            BigDecimal.valueOf(0.0), false, false
+        );
+    }
+
+    static ProductDTOPatchRequest sampleAvailableUpdateReq() {
+        return new ProductDTOPatchRequest(
+            null, null, null, 
+            null, null, null, 
+            Boolean.FALSE, null
         );
     }
 

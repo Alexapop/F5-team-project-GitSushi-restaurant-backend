@@ -15,23 +15,29 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity 
-@Table(name = "products")
+@Table(name = "products", uniqueConstraints = @UniqueConstraint(columnNames = "name"))
 @NoArgsConstructor 
-@AllArgsConstructor 
+@AllArgsConstructor
 @Getter
+@Setter 
 public class ProductEntity {
 
     @Id 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
+    @Setter(AccessLevel.NONE)
     private Long id;
     
-    @Column(name = "name", nullable = false, length = 50)
+    @Column(name = "name", nullable = false, length = 50, unique = true)
     private String name;
 
     @Column(name = "category")
@@ -59,11 +65,16 @@ public class ProductEntity {
     @OneToMany(mappedBy = "product")
     private List<OrderProductEntity> orderProducts = new ArrayList<>();
 
-    public void setAvailable(boolean available) {
+    @Builder 
+    public ProductEntity(String name, ProductCategory category, String description, String imageUrl, BigDecimal price,
+            BigDecimal discount, boolean available, boolean exclusive) {
+        this.name = name;
+        this.category = category;
+        this.description = description;
+        this.imageUrl = imageUrl;
+        this.price = price;
+        this.discount = discount;
         this.available = available;
-    }
-
-    public void setExclusive(boolean exclusive) {
         this.exclusive = exclusive;
     }
 
