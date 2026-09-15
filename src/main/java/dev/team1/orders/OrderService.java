@@ -1,6 +1,8 @@
 package dev.team1.orders;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +29,7 @@ public class OrderService {
 
     // Provisional business rule: product prices exclude VAT.
     private static final int VAT_RATE = 10;
+        private static final int KITCHEN_TARGET_MINUTES = 15;
 
     private final OrderRepository orderRepository;
     private final ProductRepository productsRepository;
@@ -193,20 +196,36 @@ public class OrderService {
                 .toList();
     }
 
-    private KitchenOrderDTOResponse toKitchenResponse(OrderEntity order) {
+        private KitchenOrderDTOResponse toKitchenResponse(OrderEntity order) {
         List<KitchenOrderItemDTO> items = order.getOrderProducts().stream()
                 .map(op -> new KitchenOrderItemDTO(
                         op.getProduct().getName(),
                         op.getQuantity()))
                 .toList();
 
+        boolean isDelayed = isOrderDelayed(order);
+
         return new KitchenOrderDTOResponse(
                 order.getId(),
                 order.getStatus(),
                 order.getChefNote(),
                 order.getCreatedAt(),
+                isDelayed,
                 items);
     }
+
+    private boolean isOrderDelayed(OrderEntity order) {
+        if (order.getStatus() == OrderStatus.READY
+                || order.getStatus() == OrderStatus.ONTHEWAY
+                || order.getStatus() == OrderStatus.DELIVERED) {
+            return false;
+        }
+
+        long minutesElapsed = ChronoUnit.MINUTES.between(order.getCreatedAt(), LocalDateTime.now());
+        return minutesElapsed >= KITCHEN_TARGET_MINUTES;
+    }
+
+
 
         @Transactional
     public KitchenOrderDTOResponse updateKitchenStatus(Long id, OrderStatus newStatus) {

@@ -11,6 +11,7 @@ public record KitchenOrderDTOResponse(
         OrderStatus status,
         String chefNote,
         LocalDateTime createdAt,
+        boolean isDelayed,
         List<KitchenOrderItemDTO> items
 ) {
     public record KitchenOrderItemDTO(
