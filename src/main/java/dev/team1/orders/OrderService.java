@@ -93,7 +93,7 @@ public class OrderService {
         return toResponse(savedOrder);
     }
 
-    private TableEntity resolveTable(dev.team1.enums.OrderChannel channel, String deviceIdentifier) {
+    private TableEntity resolveTable(OrderChannel channel, String deviceIdentifier) {
         if (channel != dev.team1.enums.OrderChannel.ONSITE) {
             return null;
         }
