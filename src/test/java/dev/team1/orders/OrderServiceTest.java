@@ -29,6 +29,8 @@ import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
+import dev.team1.tables.TableEntity;
+import dev.team1.tables.TableRepository;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
@@ -39,6 +41,9 @@ class OrderServiceTest {
     @Mock
     private ProductRepository productRepository;
 
+    @Mock
+    private TableRepository tableRepository;
+
     @InjectMocks
     private OrderService service;
 
@@ -46,17 +51,19 @@ class OrderServiceTest {
     void createOrderWithoutDiscountCalculatesTotalsAndSavesOrderLines() {
         ProductEntity product = product(null);
         when(productRepository.findById(2L)).thenReturn(Optional.of(product));
+        when(tableRepository.findByDeviceIdentifier("tablet-12")).thenReturn(Optional.of(table(12)));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
             List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
             "No onions", OrderChannel.ONSITE, PaymentMethod.CREDITCARD);
 
-        OrderDTOResponse response = service.createOrder(request);
+        OrderDTOResponse response = service.createOrder(request, "tablet-12");
 
         assertEquals(new BigDecimal("20.00"), response.subtotal());
         assertEquals(new BigDecimal("0.00"), response.discountAmount());
         assertEquals(new BigDecimal("2.00"), response.vatAmount());
         assertEquals(new BigDecimal("22.00"), response.total());
+        assertEquals(12, response.tableNumber());
         assertEquals(OrderStatus.PLACED, response.status());
         ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
         verify(orderRepository).save(captor.capture());
@@ -73,12 +80,13 @@ class OrderServiceTest {
     @Test
     void createOrderAppliesDiscountBeforeVat() {
         when(productRepository.findById(2L)).thenReturn(Optional.of(product(new BigDecimal("10"))));
+        when(tableRepository.findByDeviceIdentifier("tablet-12")).thenReturn(Optional.of(table(12)));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
             List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
             null, OrderChannel.ONSITE, PaymentMethod.CASH);
 
-        OrderDTOResponse response = service.createOrder(request);
+        OrderDTOResponse response = service.createOrder(request, "tablet-12");
 
         assertEquals(new BigDecimal("20.00"), response.subtotal());
         assertEquals(new BigDecimal("2.00"), response.discountAmount());
@@ -87,6 +95,58 @@ class OrderServiceTest {
         assertEquals(OrderStatus.PLACED, response.status());
         assertEquals(OrderChannel.ONSITE, response.channel());
         assertEquals(PaymentMethod.CASH, response.paymentMethod());
+    }
+
+    @Test
+    void createOnsiteOrderRejectsAbsentDeviceIdentifier() {
+        OrderDTORequest request = onsiteRequest();
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.createOrder(request, null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void createOnsiteOrderRejectsBlankDeviceIdentifier() {
+        OrderDTORequest request = onsiteRequest();
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.createOrder(request, "   "));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void createOnsiteOrderRejectsUnknownDeviceWithoutSaving() {
+        when(tableRepository.findByDeviceIdentifier("unknown-device"))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.createOrder(onsiteRequest(), "unknown-device"));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void createOnlineOrderDoesNotAssociateTable() {
+        ProductEntity product = product(null);
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONLINE, PaymentMethod.CREDITCARD);
+
+        OrderDTOResponse response = service.createOrder(request, null);
+
+        assertEquals(OrderChannel.ONLINE, response.channel());
+        assertEquals(null, response.tableNumber());
+        ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(captor.capture());
+        assertEquals(null, captor.getValue().getTable());
     }
 
     @Test
@@ -120,5 +180,20 @@ class OrderServiceTest {
     private ProductEntity product(BigDecimal discount) {
         return new ProductEntity(2L, "Sushi", null, "Salmon sushi", "sushi.png",
                 new BigDecimal("10.00"), discount, true, false, new ArrayList<>());
+    }
+
+    private OrderDTORequest onsiteRequest() {
+        ProductEntity product = product(null);
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product));
+        return new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONSITE, PaymentMethod.CASH);
+    }
+
+    private TableEntity table(int tableNumber) {
+        TableEntity table = new TableEntity();
+        table.setTableNumber(tableNumber);
+        table.setDeviceIdentifier("tablet-12");
+        return table;
     }
 }

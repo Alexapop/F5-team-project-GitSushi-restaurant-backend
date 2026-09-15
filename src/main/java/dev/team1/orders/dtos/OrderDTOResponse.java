@@ -17,7 +17,8 @@ public record OrderDTOResponse(
         String chefNote,
         OrderStatus status,
         OrderChannel channel,
-        PaymentMethod paymentMethod
+        PaymentMethod paymentMethod,
+        Integer tableNumber
 
 ) {
 
