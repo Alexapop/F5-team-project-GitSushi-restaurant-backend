@@ -208,6 +208,36 @@ public class OrderService {
                 items);
     }
 
+        @Transactional
+    public KitchenOrderDTOResponse updateKitchenStatus(Long id, OrderStatus newStatus) {
+        OrderEntity order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Order not found: " + id));
+
+        validateKitchenStatusTransition(order.getStatus(), newStatus);
+
+        order.setStatus(newStatus);
+        OrderEntity savedOrder = orderRepository.save(order);
+        return toKitchenResponse(savedOrder);
+    }
+
+    private void validateKitchenStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {
+        List<OrderStatus> allowedKitchenStatuses = List.of(
+                OrderStatus.PROCESSING, OrderStatus.DELAYED, OrderStatus.READY);
+
+        if (!allowedKitchenStatuses.contains(newStatus)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid kitchen status: " + newStatus);
+        }
+
+        if (currentStatus == OrderStatus.DELIVERED || currentStatus == OrderStatus.ONTHEWAY) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot change kitchen status once order is " + currentStatus);
+        }
+    }
+
     private OrderDTOResponse toResponse(OrderEntity savedOrder) {
         return new OrderDTOResponse(
                 savedOrder.getId(),
