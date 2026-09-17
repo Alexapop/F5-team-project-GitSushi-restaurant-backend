@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
@@ -93,7 +94,7 @@ public class OrderService {
         return toResponse(savedOrder);
     }
 
-    private TableEntity resolveTable(dev.team1.enums.OrderChannel channel, String deviceIdentifier) {
+    private TableEntity resolveTable(OrderChannel channel, String deviceIdentifier) {
         if (channel != dev.team1.enums.OrderChannel.ONSITE) {
             return null;
         }
