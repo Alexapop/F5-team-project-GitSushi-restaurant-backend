@@ -1,5 +1,6 @@
 package dev.team1.mappers;
 
+import dev.team1.roles.RoleEntity;
 import dev.team1.users.UserEntity;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
@@ -20,15 +21,21 @@ public class UserMapper {
         return entity;
     }
 
-    public UserResponseDTO toResponseDTO(UserEntity entity) {
-        UserResponseDTO dto = new UserResponseDTO();
-        dto.setId(entity.getId());
-        dto.setFirstName(entity.getFirstName());
-        dto.setLastName(entity.getLastName());
-        dto.setEmail(entity.getEmail());
-        dto.setAddress(entity.getAddress());
-        dto.setPostalCode(entity.getPostalCode());
-        dto.setCity(entity.getCity());
+    public UserResponseDTO toDTO(UserEntity entity) {
+        UserResponseDTO dto = UserResponseDTO.builder()
+            .id(entity.getId())
+            .email(entity.getEmail())
+            .firstName(entity.getFirstName())
+            .lastName(entity.getLastName())
+            .postalCode(entity.getPostalCode())
+            .address(entity.getAddress())
+            .city(entity.getCity())
+            .roles(
+                entity.getRoles().stream()
+                    .map(RoleEntity::getName)
+                    .toList()
+            )
+            .build();
         return dto;
     }
 

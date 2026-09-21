@@ -32,7 +32,7 @@ public class UserService {
         newUser.setPassword(passwordEncoderPort.encode(newUser.getPassword()));
 
         UserEntity savedUser = userRepository.save(newUser);
-        return userMapper.toResponseDTO(savedUser);
+        return userMapper.toDTO(savedUser);
     }
 
     private void validateRequiredFields(UserRequestDTO dto) {
