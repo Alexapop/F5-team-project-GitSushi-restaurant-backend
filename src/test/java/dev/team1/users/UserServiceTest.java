@@ -18,6 +18,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import java.util.UUID;
+
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
@@ -63,21 +65,23 @@ class UserServiceTest {
         savedEntity.setEmail("ahmet@example.com");
         savedEntity.setPassword("encoded-secret123");
 
-        UserResponseDTO expectedResponse = new UserResponseDTO();
-        expectedResponse.setId(1L);
-        expectedResponse.setEmail("ahmet@example.com");
+        UUID mockId = UUID.randomUUID();
+        UserResponseDTO expectedResponse = UserResponseDTO.builder()
+            .id(mockId)
+            .email("ahmet@example.com")
+            .build();
 
         when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
         when(userMapper.toEntity(validRequest)).thenReturn(mappedEntity);
         when(passwordEncoderPort.encode("secret123")).thenReturn("encoded-secret123");
         when(userRepository.save(any(UserEntity.class))).thenReturn(savedEntity);
-        when(userMapper.toResponseDTO(savedEntity)).thenReturn(expectedResponse);
+        when(userMapper.toDTO(savedEntity)).thenReturn(expectedResponse);
 
         UserResponseDTO result = userService.registerUser(validRequest);
 
         assertThat(result).isNotNull();
-        assertThat(result.getId()).isEqualTo(1L);
-        assertThat(result.getEmail()).isEqualTo("ahmet@example.com");
+        assertThat(result.id()).isEqualTo(mockId);
+        assertThat(result.email()).isEqualTo("ahmet@example.com");
         verify(userRepository).save(mappedEntity);
     }
 
