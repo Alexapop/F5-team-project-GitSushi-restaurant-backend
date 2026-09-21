@@ -10,12 +10,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
+import dev.team1.tables.TableEntity;
+import dev.team1.tables.TableRepository;
 
 @Service
 public class OrderService {
@@ -25,15 +28,18 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ProductRepository productsRepository;
+    private final TableRepository tableRepository;
 
     public OrderService(OrderRepository orderRepository,
-            ProductRepository productsRepository) {
+            ProductRepository productsRepository,
+            TableRepository tableRepository) {
         this.orderRepository = orderRepository;
         this.productsRepository = productsRepository;
+        this.tableRepository = tableRepository;
     }
 
     @Transactional
-    public OrderDTOResponse createOrder(OrderDTORequest request) {
+    public OrderDTOResponse createOrder(OrderDTORequest request, String deviceIdentifier) {
         OrderEntity order = new OrderEntity();
         List<OrderProductEntity> ops = new ArrayList<>();
 
@@ -82,9 +88,25 @@ public class OrderService {
         order.setChannel(request.channel());
         order.setPaymentMethod(request.paymentMethod());
         order.setStatus(OrderStatus.PLACED);
+        order.setTable(resolveTable(request.channel(), deviceIdentifier));
 
         OrderEntity savedOrder = orderRepository.save(order);
         return toResponse(savedOrder);
+    }
+
+    private TableEntity resolveTable(OrderChannel channel, String deviceIdentifier) {
+        if (channel != dev.team1.enums.OrderChannel.ONSITE) {
+            return null;
+        }
+
+        if (deviceIdentifier == null || deviceIdentifier.strip().isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Device identifier is required for onsite orders.");
+        }
+
+        return tableRepository.findByDeviceIdentifier(deviceIdentifier.strip())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "No table found for the given device."));
     }
 
     private ProductEntity getAvailableProduct(Long productId) {
@@ -171,6 +193,7 @@ public class OrderService {
                 savedOrder.getChefNote(),
                 savedOrder.getStatus(),
                 savedOrder.getChannel(),
-                savedOrder.getPaymentMethod());
+                savedOrder.getPaymentMethod(),
+                savedOrder.getTable() == null ? null : savedOrder.getTable().getTableNumber());
     }
 }
