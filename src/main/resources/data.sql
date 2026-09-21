@@ -1,3 +1,9 @@
+-- === ROLES ===
+INSERT INTO roles (id, name) VALUES (default, 'CUSTOMER');
+INSERT INTO roles (id, name) VALUES (default, 'ADMIN');
+INSERT INTO roles (id, name) VALUES (default, 'COOK');
+INSERT INTO roles (id, name) VALUES (default, 'DELIVERYMAN');
+
 -- === LA CARTA ===
 
 -- ENTRANTES
