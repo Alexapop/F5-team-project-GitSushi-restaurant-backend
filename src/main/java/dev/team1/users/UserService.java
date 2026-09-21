@@ -1,6 +1,8 @@
 package dev.team1.users;
 
 import dev.team1.mappers.UserMapper;
+import dev.team1.roles.RoleEntity;
+import dev.team1.roles.RoleRepository;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
 import org.springframework.stereotype.Service;
@@ -15,12 +17,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoderPort passwordEncoderPort;
-    private final UserMapper userMapper;
+    private final RoleRepository roleRepository;
 
-    public UserService(UserRepository userRepository, PasswordEncoderPort passwordEncoderPort, UserMapper userMapper) {
+    public UserService(UserRepository userRepository, PasswordEncoderPort passwordEncoderPort, RoleRepository roleRepository) {
         this.userRepository = userRepository;
         this.passwordEncoderPort = passwordEncoderPort;
-        this.userMapper = userMapper;
+        this.roleRepository = roleRepository;
     }
 
     public UserResponseDTO registerUser(UserRequestDTO requestDTO) {
@@ -28,11 +30,14 @@ public class UserService {
         validateEmailFormat(requestDTO.getEmail());
         validateEmailNotTaken(requestDTO.getEmail());
 
-        UserEntity newUser = userMapper.toEntity(requestDTO);
+        UserEntity newUser = UserMapper.toEntity(requestDTO);
         newUser.setPassword(passwordEncoderPort.encode(newUser.getPassword()));
+        
+        RoleEntity roleCustomer = roleRepository.findByName("CUSTOMER");
+        newUser.getRoles().add(roleCustomer);
 
         UserEntity savedUser = userRepository.save(newUser);
-        return userMapper.toDTO(savedUser);
+        return UserMapper.toDTO(savedUser);
     }
 
     private void validateRequiredFields(UserRequestDTO dto) {

@@ -4,12 +4,10 @@ import dev.team1.roles.RoleEntity;
 import dev.team1.users.UserEntity;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
-import org.springframework.stereotype.Component;
 
-@Component
 public class UserMapper {
 
-    public UserEntity toEntity(UserRequestDTO dto) {
+    public static UserEntity toEntity(UserRequestDTO dto) {
         UserEntity entity = new UserEntity();
         entity.setFirstName(dto.getFirstName());
         entity.setLastName(dto.getLastName());
@@ -21,7 +19,7 @@ public class UserMapper {
         return entity;
     }
 
-    public UserResponseDTO toDTO(UserEntity entity) {
+    public static UserResponseDTO toDTO(UserEntity entity) {
         UserResponseDTO dto = UserResponseDTO.builder()
             .id(entity.getId())
             .email(entity.getEmail())
