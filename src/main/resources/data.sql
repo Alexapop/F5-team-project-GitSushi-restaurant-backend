@@ -4,6 +4,36 @@ INSERT INTO roles (id, name) VALUES (default, 'ADMIN');
 INSERT INTO roles (id, name) VALUES (default, 'COOK');
 INSERT INTO roles (id, name) VALUES (default, 'DELIVERYMAN');
 
+-- === USERS ===
+INSERT INTO users (
+    id, first_name, last_name, 
+    email, password, 
+    address, postal_code, city
+) VALUES (
+    default, 'Siquis', 'Miquis',
+    'admin@gitsushi.com', 'admin123',
+    'España, Asturias', '58149', 'Oviedo'
+);
+
+INSERT INTO users (
+    id, first_name, last_name, 
+    email, password, 
+    address, postal_code, city
+) VALUES (
+    default, 'Caquis', 'Paquis',
+    'customer@gitsushi.com', 'user1234',
+    'España, Asturias', '58149', 'Oviedo'
+);
+
+-- === USERS_ROLES === 
+
+INSERT INTO users_roles (user_id, role_id) VALUES (
+    (SELECT id FROM users LIMIT 1), 2
+);
+INSERT INTO users_roles (user_id, role_id) VALUES (
+    (SELECT id FROM users LIMIT 1 OFFSET 1), 1
+);
+
 -- === LA CARTA ===
 
 -- ENTRANTES
