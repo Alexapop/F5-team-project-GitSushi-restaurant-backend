@@ -1,5 +1,6 @@
 package dev.team1.auth;
 
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 
 import dev.team1.auth.dtos.CredentialsDTO;
@@ -17,11 +18,11 @@ public class AuthService {
 
     public UserResponseDTO login(CredentialsDTO credentials) {
         UserEntity user = userRepository.findByEmail(credentials.email())
-            .orElseThrow(() -> new AuthExceptionWrondEmailOrPassword("User doesn't exist.")) // TODO create and handle globally this exception
+            .orElseThrow(() -> new BadCredentialsException("User doesn't exist."));
 
         // TODO check password correctly
         if (credentials.password() != user.getPassword()) {
-            throw new AuthExceptionWrondEmailOrPassword("Wrong password");
+            throw new BadCredentialsException("Wrong password");
         } 
 
         return UserMapper.toDTO(user);

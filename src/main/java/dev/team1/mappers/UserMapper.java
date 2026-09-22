@@ -1,5 +1,7 @@
 package dev.team1.mappers;
 
+import java.util.List;
+
 import dev.team1.roles.RoleEntity;
 import dev.team1.users.UserEntity;
 import dev.team1.users.dtos.UserRequestDTO;
@@ -35,6 +37,10 @@ public class UserMapper {
             )
             .build();
         return dto;
+    }
+
+    public static String rolesToString(List<String> rolesList) {
+        return String.join(", ", rolesList);
     }
 
 }

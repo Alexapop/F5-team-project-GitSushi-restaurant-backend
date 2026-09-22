@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -46,6 +47,12 @@ public class GlobalExceptionHandler {
             ResponseStatusException exception) {
         return ResponseEntity.status(exception.getStatusCode())
                 .body(exception.getReason());
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<String> handleBadCredentialsException(
+            BadCredentialsException exception) {
+        return ResponseEntity.status(401).body(exception.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
