@@ -9,6 +9,10 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
+
 @Entity
 @Table(name = "users")
 @NoArgsConstructor 
@@ -17,6 +21,9 @@ public class UserEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @ColumnDefault("uuid()")
+    @Generated(event = EventType.INSERT)
+    @Column(columnDefinition = "UUID", updatable = false, nullable = false)
     private UUID id;
 
     @Column(name = "first_name", nullable = false)
@@ -45,8 +52,8 @@ public class UserEntity {
     @ManyToMany
     @JoinTable(
         name = "users_roles",
-        joinColumns = @JoinColumn(name = "id_user"),
-        inverseJoinColumns = @JoinColumn(name = "id_role")
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private Set<RoleEntity> roles = new HashSet<>();
 }

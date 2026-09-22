@@ -28,13 +28,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import dev.team1.config.SecurityConfiguration;
 import dev.team1.contracts.IProductService;
 import dev.team1.enums.ProductCategory;
 import dev.team1.products.dtos.ProductDTOPatchRequest;
 import dev.team1.products.dtos.ProductDTORequest;
 import dev.team1.products.dtos.ProductDTOResponse;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
+import dev.team1.security.SecurityConfiguration;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.JsonNode;

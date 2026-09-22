@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import dev.team1.config.SecurityConfiguration;
+import dev.team1.security.SecurityConfiguration;
 import dev.team1.tables.dtos.TableDTOResponse;
 
 @WebMvcTest(controllers = TableController.class, properties = "api-endpoint=api/v1")

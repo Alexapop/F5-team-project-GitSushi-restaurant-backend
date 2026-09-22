@@ -1,8 +1,8 @@
 -- === ROLES ===
-INSERT INTO roles (id, name) VALUES (default, 'CUSTOMER');
-INSERT INTO roles (id, name) VALUES (default, 'ADMIN');
-INSERT INTO roles (id, name) VALUES (default, 'COOK');
-INSERT INTO roles (id, name) VALUES (default, 'DELIVERYMAN');
+INSERT INTO roles (id, name) VALUES (default, 'ROLE_CUSTOMER');
+INSERT INTO roles (id, name) VALUES (default, 'ROLE_ADMIN');
+INSERT INTO roles (id, name) VALUES (default, 'ROLE_COOK');
+INSERT INTO roles (id, name) VALUES (default, 'ROLE_DELIVERYMAN');
 
 -- === USERS ===
 INSERT INTO users (

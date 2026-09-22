@@ -21,12 +21,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
-import dev.team1.config.SecurityConfiguration;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
+import dev.team1.security.SecurityConfiguration;
 
 @WebMvcTest(controllers = OrderController.class, properties = "api-endpoint=api/v1")
 @Import(SecurityConfiguration.class)
