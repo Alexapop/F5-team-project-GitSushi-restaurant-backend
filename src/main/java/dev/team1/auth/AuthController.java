@@ -1,12 +1,15 @@
 package dev.team1.auth;
 
 import dev.team1.App;
+import dev.team1.auth.dtos.CredentialsDTO;
+
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import dev.team1.users.dtos.UserResponseDTO;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import java.time.Duration;
@@ -28,7 +31,7 @@ public class AuthController {
     private final JwtSevice jwtService;
 
     @GetMapping("login")
-    public ResponseEntity<UserResponseDTO> loginHandler(@RequestBody CredentialsDTO credentials, HttpServletResponse response) {
+    public ResponseEntity<UserResponseDTO> loginHandler(@RequestBody @Valid CredentialsDTO credentials, HttpServletResponse response) {
         UserResponseDTO userDto = authService.login(credentials);
         
         JwtAuthentificationDTO authDTO = jwtService.generateAuthToken(userDto.email(), userDto.roles());
