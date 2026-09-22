@@ -2,8 +2,8 @@ package dev.team1.auth;
 
 import dev.team1.auth.dtos.CredentialsDTO;
 import dev.team1.mappers.UserMapper;
-import dev.team1.security.JwtAuthentificationDTO;
 import dev.team1.security.JwtService;
+import dev.team1.security.dtos.JwtAuthentificationDTO;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;

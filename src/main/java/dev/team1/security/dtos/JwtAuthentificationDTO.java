@@ -1,4 +1,4 @@
-package dev.team1.security;
+package dev.team1.security.dtos;
 
 import lombok.Builder;
 
