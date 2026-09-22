@@ -5,6 +5,7 @@ import dev.team1.auth.dtos.CredentialsDTO;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.function.ServerRequest.Headers;
 
 import dev.team1.users.dtos.UserResponseDTO;
 import jakarta.servlet.http.Cookie;
@@ -42,6 +43,17 @@ public class AuthController {
         response.addCookie(cookieRefresh);
         
         return ResponseEntity.ok(userDto);
+    }
+
+    @GetMapping("logout")
+    public ResponseEntity<Void> logoutHandler(HttpServletResponse response) {
+        
+        Cookie cookieAccess = generateCookie("access_token", "");
+        Cookie cookieRefresh = generateCookie("refresh_token", "");
+        response.addCookie(cookieAccess);
+        response.addCookie(cookieRefresh);
+        
+        return ResponseEntity.noContent().build();
     }
 
     private Cookie generateCookie(String key, String value) {
