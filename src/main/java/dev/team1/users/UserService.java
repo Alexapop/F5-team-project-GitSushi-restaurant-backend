@@ -3,6 +3,7 @@ package dev.team1.users;
 import dev.team1.mappers.UserMapper;
 import dev.team1.roles.RoleEntity;
 import dev.team1.roles.RoleRepository;
+import dev.team1.security.PasswordEncoderPort;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
 import org.springframework.stereotype.Service;

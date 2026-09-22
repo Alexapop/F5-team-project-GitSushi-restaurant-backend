@@ -1,6 +1,7 @@
 package dev.team1.users;
 
 import dev.team1.mappers.UserMapper;
+import dev.team1.security.PasswordEncoderPort;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
 import org.junit.jupiter.api.BeforeEach;
