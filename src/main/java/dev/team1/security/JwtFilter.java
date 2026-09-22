@@ -10,6 +10,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import dev.team1.auth.CustomUserDetails;
+import dev.team1.auth.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,7 +23,7 @@ import lombok.RequiredArgsConstructor;
 @Validated 
 public class JwtFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
-    private final CustomUserServiceImpl customUserService;
+    private final CustomUserDetailsService customUserService;
 
     @Override
     protected void doFilterInternal(
