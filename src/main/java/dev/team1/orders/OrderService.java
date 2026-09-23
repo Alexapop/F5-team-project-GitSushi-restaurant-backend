@@ -1,6 +1,8 @@
 package dev.team1.orders;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +16,8 @@ import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
+import dev.team1.orders.dtos.KitchenOrderDTOResponse;
+import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
@@ -25,6 +29,7 @@ public class OrderService {
 
     // Provisional business rule: product prices exclude VAT.
     private static final int VAT_RATE = 10;
+        private static final int KITCHEN_TARGET_MINUTES = 15;
 
     private final OrderRepository orderRepository;
     private final ProductRepository productsRepository;
@@ -179,6 +184,77 @@ public class OrderService {
         return orders.stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+        @Transactional(readOnly = true)
+    public List<KitchenOrderDTOResponse> getActiveKitchenOrders() {
+        List<OrderEntity> orders = orderRepository.findByStatusIn(
+                List.of(OrderStatus.PLACED, OrderStatus.PROCESSING, OrderStatus.DELAYED));
+
+        return orders.stream()
+                .map(this::toKitchenResponse)
+                .toList();
+    }
+
+        private KitchenOrderDTOResponse toKitchenResponse(OrderEntity order) {
+        List<KitchenOrderItemDTO> items = order.getOrderProducts().stream()
+                .map(op -> new KitchenOrderItemDTO(
+                        op.getProduct().getName(),
+                        op.getQuantity()))
+                .toList();
+
+        boolean isDelayed = isOrderDelayed(order);
+
+        return new KitchenOrderDTOResponse(
+                order.getId(),
+                order.getStatus(),
+                order.getChefNote(),
+                order.getCreatedAt(),
+                isDelayed,
+                items);
+    }
+
+    private boolean isOrderDelayed(OrderEntity order) {
+        if (order.getStatus() == OrderStatus.READY
+                || order.getStatus() == OrderStatus.ONTHEWAY
+                || order.getStatus() == OrderStatus.DELIVERED) {
+            return false;
+        }
+
+        long minutesElapsed = ChronoUnit.MINUTES.between(order.getCreatedAt(), LocalDateTime.now());
+        return minutesElapsed >= KITCHEN_TARGET_MINUTES;
+    }
+
+
+
+        @Transactional
+    public KitchenOrderDTOResponse updateKitchenStatus(Long id, OrderStatus newStatus) {
+        OrderEntity order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Order not found: " + id));
+
+        validateKitchenStatusTransition(order.getStatus(), newStatus);
+
+        order.setStatus(newStatus);
+        OrderEntity savedOrder = orderRepository.save(order);
+        return toKitchenResponse(savedOrder);
+    }
+
+    private void validateKitchenStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {
+        List<OrderStatus> allowedKitchenStatuses = List.of(
+                OrderStatus.PROCESSING, OrderStatus.DELAYED, OrderStatus.READY);
+
+        if (!allowedKitchenStatuses.contains(newStatus)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid kitchen status: " + newStatus);
+        }
+
+        if (currentStatus == OrderStatus.DELIVERED || currentStatus == OrderStatus.ONTHEWAY) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot change kitchen status once order is " + currentStatus);
+        }
     }
 
     private OrderDTOResponse toResponse(OrderEntity savedOrder) {
