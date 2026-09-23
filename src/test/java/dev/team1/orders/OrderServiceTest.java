@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +28,7 @@ import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
+import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
 import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
 import dev.team1.tables.TableEntity;
@@ -195,5 +197,57 @@ class OrderServiceTest {
         table.setTableNumber(tableNumber);
         table.setDeviceIdentifier("tablet-12");
         return table;
+    }
+        @Test
+    void getKitchenMetricsReturnsCorrectCountsAndAverage() {
+        OrderEntity processingOrder = new OrderEntity();
+        processingOrder.setStatus(OrderStatus.PROCESSING);
+        processingOrder.setCreatedAt(LocalDateTime.now().minusMinutes(5));
+        processingOrder.setOrderProducts(new ArrayList<>());
+
+        OrderEntity delayedOrder = new OrderEntity();
+        delayedOrder.setStatus(OrderStatus.PROCESSING);
+        delayedOrder.setCreatedAt(LocalDateTime.now().minusMinutes(20));
+        delayedOrder.setOrderProducts(new ArrayList<>());
+
+        when(orderRepository.findByStatusIn(
+                List.of(OrderStatus.PLACED, OrderStatus.PROCESSING, OrderStatus.DELAYED)))
+                .thenReturn(List.of(processingOrder, delayedOrder));
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of());
+
+        KitchenMetricsDTOResponse metrics = service.getKitchenMetrics();
+
+        assertEquals(2, metrics.totalActiveOrders());
+        assertEquals(2, metrics.processingCount());
+        assertEquals(1, metrics.delayedCount());
+        assertEquals(0, metrics.readyCount());
+    }
+
+    @Test
+    void getKitchenMetricsReturnsZeroWhenNoActiveOrders() {
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of());
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of());
+
+        KitchenMetricsDTOResponse metrics = service.getKitchenMetrics();
+
+        assertEquals(0, metrics.totalActiveOrders());
+        assertEquals(0.0, metrics.averagePreparationMinutes());
+        assertEquals(0, metrics.processingCount());
+        assertEquals(0, metrics.delayedCount());
+        assertEquals(0, metrics.readyCount());
+    }
+
+    @Test
+    void getKitchenMetricsCountsReadyOrdersSeparately() {
+        OrderEntity readyOrder = new OrderEntity();
+        readyOrder.setStatus(OrderStatus.READY);
+
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of());
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of(readyOrder));
+
+        KitchenMetricsDTOResponse metrics = service.getKitchenMetrics();
+
+        assertEquals(1, metrics.readyCount());
+        assertEquals(0, metrics.totalActiveOrders());
     }
 }
