@@ -28,10 +28,10 @@ INSERT INTO users (
 -- === USERS_ROLES === 
 
 INSERT INTO users_roles (user_id, role_id) VALUES (
-    (SELECT id FROM users LIMIT 1), 2
+    (SELECT id FROM users LIMIT 1), 1
 );
 INSERT INTO users_roles (user_id, role_id) VALUES (
-    (SELECT id FROM users LIMIT 1 OFFSET 1), 1
+    (SELECT id FROM users LIMIT 1 OFFSET 1), 2
 );
 
 -- === LA CARTA ===

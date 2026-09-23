@@ -7,30 +7,36 @@ import java.util.List;
 
 import javax.crypto.SecretKey;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import dev.team1.security.dtos.JwtAuthentificationDTO;
+import dev.team1.security.dtos.JwtAuthenticationDTO;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 
 @Component 
+@RequiredArgsConstructor 
 public class JwtService {
 
-    @Value("${jwt-secret}") // 0kuSAcoQ7qpnLOO92S2VCrkc8g2tiDrWgZ5V+lzYWqA=
+    // @Value("${jwt-secret}")
+    @Value("0kuSAcoQ7qpnLOO92S2VCrkc8g2tiDrWgZ5V+lzYWqA=") 
     private String jwtSecret;
 
-    public JwtAuthentificationDTO generateAuthToken(String email, String role) {
-        return JwtAuthentificationDTO.builder()
+    public JwtAuthenticationDTO generateAuthToken(String email, String role) {
+        return JwtAuthenticationDTO.builder()
             .token(generateJwtToken(email, role))
             .refreshToken(generateRefreshToken(email, role))
             .build();
     }
 
-    public JwtAuthentificationDTO refreshBaseToken(String email, String role, String refreshToken) {
-        return JwtAuthentificationDTO.builder()
+    public JwtAuthenticationDTO refreshBaseToken(String email, String role, String refreshToken) {
+        return JwtAuthenticationDTO.builder()
             .token(generateJwtToken(email, role))
             .refreshToken(refreshToken)
             .build();
@@ -58,17 +64,12 @@ public class JwtService {
     }
 
     public boolean validateJwtToken(String token) {
-        try {
-            Jwts.parser()
-                .verifyWith(getSignKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-            return true;
-            
-        } catch (Exception exc) {
-            return false; 
-        }
+        Jwts.parser()
+            .verifyWith(getSignKey())
+            .build()
+            .parseSignedClaims(token)
+            .getPayload();
+        return true;
     }
 
     private String generateJwtToken(String email, String role) {
