@@ -39,7 +39,7 @@ class KitchenControllerTest {
     void getActiveOrdersReturnsKitchenOrders() throws Exception {
         when(service.getActiveKitchenOrders()).thenReturn(List.of(kitchenResponse(OrderStatus.PROCESSING, false)));
 
-        mockMvc.perform(get("/api/v1/cocina/comandas"))
+        mockMvc.perform(get("/api/v1/kitchen/orders"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].id").value(1))
@@ -52,7 +52,7 @@ class KitchenControllerTest {
     void getActiveOrdersReturnsEmptyListWhenNoOrders() throws Exception {
         when(service.getActiveKitchenOrders()).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/v1/cocina/comandas"))
+        mockMvc.perform(get("/api/v1/kitchen/orders"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
@@ -62,7 +62,7 @@ class KitchenControllerTest {
         when(service.updateKitchenStatus(1L, OrderStatus.READY))
                 .thenReturn(kitchenResponse(OrderStatus.READY, false));
 
-        mockMvc.perform(patch("/api/v1/cocina/comandas/1/estado")
+        mockMvc.perform(patch("/api/v1/kitchen/orders/1/status")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"status":"READY"}
@@ -78,7 +78,7 @@ class KitchenControllerTest {
                 .thenThrow(new ResponseStatusException(
                         org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid kitchen status: PAID"));
 
-        mockMvc.perform(patch("/api/v1/cocina/comandas/1/estado")
+        mockMvc.perform(patch("/api/v1/kitchen/orders/1/status")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"status":"PAID"}
@@ -93,7 +93,7 @@ class KitchenControllerTest {
                 .thenThrow(new ResponseStatusException(
                         org.springframework.http.HttpStatus.NOT_FOUND, "Order not found: 99"));
 
-        mockMvc.perform(patch("/api/v1/cocina/comandas/99/estado")
+        mockMvc.perform(patch("/api/v1/kitchen/orders/99/status")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"status":"READY"}
