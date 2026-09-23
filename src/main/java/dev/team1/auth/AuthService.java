@@ -1,8 +1,8 @@
 package dev.team1.auth;
 
+import java.util.HashSet;
 import java.util.List;
-
-import javax.security.sasl.AuthenticationException;
+import java.util.Set;
 
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
@@ -42,7 +42,7 @@ public class AuthService {
     }
 
     public JwtAuthenticationDTO updateAuth(String oldRefreshToken) {
-        if (oldRefreshToken == null) throw new JwtException("Invalid refresh token: token doesn't exist");
+        if (oldRefreshToken == null || oldRefreshToken.isBlank()) throw new JwtException("Invalid refresh token: token doesn't exist");
         
         jwtService.validateJwtToken(oldRefreshToken);
             
@@ -53,11 +53,22 @@ public class AuthService {
         if (user == null) throw new JwtException("Invalid refresh token: user with email doesn't exist");
         
         UserResponseDTO userDTO = UserMapper.toDTO(user);
-        if (tokenRoles.size() != userDTO.roles().size() || tokenRoles.get(0).equals(userDTO.roles().get(0))) {
+        
+
+        Set<String> tokenRoleSet = new HashSet<>(tokenRoles);
+        Set<String> userRoleSet = new HashSet<>(userDTO.roles());
+        if (!tokenRoleSet.equals(userRoleSet)) {
             throw new JwtException("Invalid refresh token: roles mismatch");
         }
 
         return jwtService.refreshBaseToken(tokenEmail, UserMapper.rolesToString(tokenRoles), oldRefreshToken);
+    }
+
+    public UserResponseDTO getMe(String email) {
+        UserEntity user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new BadCredentialsException("User doesn't exist."));
+
+        return UserMapper.toDTO(user);
     }
 
 }

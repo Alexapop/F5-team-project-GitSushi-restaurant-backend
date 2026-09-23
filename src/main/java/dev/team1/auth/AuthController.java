@@ -1,11 +1,8 @@
 package dev.team1.auth;
 
 import dev.team1.auth.dtos.CredentialsDTO;
-import dev.team1.mappers.UserMapper;
-import dev.team1.security.JwtService;
 import dev.team1.security.dtos.JwtAuthenticationDTO;
 
-import dev.team1.tables.TableService;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,10 +13,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import java.time.Duration;
-import java.util.List;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -74,6 +70,11 @@ public class AuthController {
 
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("me")
+    public ResponseEntity<UserResponseDTO> getMeHandler(@AuthenticationPrincipal CustomUserDetails userPrincipal) {
+        return ResponseEntity.ok(authService.getMe(userPrincipal.getUsername()));
+    }
     
 
     private Cookie generateCookie(String key, String value) {
@@ -86,7 +87,5 @@ public class AuthController {
         cookie.setPath("/");
         return cookie;
     }
-
-   
 
 }

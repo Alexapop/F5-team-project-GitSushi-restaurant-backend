@@ -7,14 +7,11 @@ import java.util.List;
 
 import javax.crypto.SecretKey;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import dev.team1.security.dtos.JwtAuthenticationDTO;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -24,8 +21,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor 
 public class JwtService {
 
-    // @Value("${jwt-secret}")
-    @Value("0kuSAcoQ7qpnLOO92S2VCrkc8g2tiDrWgZ5V+lzYWqA=") 
+    @Value("${jwt-secret}")
     private String jwtSecret;
 
     public JwtAuthenticationDTO generateAuthToken(String email, String role) {
@@ -75,7 +71,7 @@ public class JwtService {
     private String generateJwtToken(String email, String role) {
         Date date = Date.from(
             LocalDateTime.now()
-            .plusMinutes(15)
+            .plusMinutes(1)
             .atZone(ZoneId.systemDefault())
             .toInstant()
         );

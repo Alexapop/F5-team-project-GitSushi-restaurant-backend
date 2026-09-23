@@ -275,8 +275,6 @@ public class ProductControllerTest {
                 }
                 """;
 
-        System.out.println(mapper.writeValueAsString(mockReqDTO));
-
         when(service.store(mockReqDTO)).thenReturn(mockRespDTO);
         MockHttpServletResponse response = mockMvc.perform(post("/api/v1/products")
                 .contentType(MediaType.APPLICATION_JSON)

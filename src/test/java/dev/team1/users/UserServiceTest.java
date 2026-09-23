@@ -73,10 +73,10 @@ class UserServiceTest {
             .build();
 
         when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
-        when(userMapper.toEntity(validRequest)).thenReturn(mappedEntity);
+        when(UserMapper.toEntity(validRequest)).thenReturn(mappedEntity);
         when(passwordEncoderPort.encode("secret123")).thenReturn("encoded-secret123");
         when(userRepository.save(any(UserEntity.class))).thenReturn(savedEntity);
-        when(userMapper.toDTO(savedEntity)).thenReturn(expectedResponse);
+        when(UserMapper.toDTO(savedEntity)).thenReturn(expectedResponse);
 
         UserResponseDTO result = userService.registerUser(validRequest);
 
