@@ -15,7 +15,7 @@ import dev.team1.orders.dtos.KitchenOrderDTOResponse;
 import dev.team1.orders.dtos.KitchenStatusUpdateDTORequest;
 
 @RestController
-@RequestMapping(path = "${api-endpoint}/cocina")
+@RequestMapping(path = "${api-endpoint}/kitchen")
 public class KitchenController {
 
     private final OrderService orderService;
@@ -24,12 +24,12 @@ public class KitchenController {
         this.orderService = orderService;
     }
 
-    @GetMapping("/comandas")
+    @GetMapping("/orders")
     public ResponseEntity<List<KitchenOrderDTOResponse>> getActiveOrders() {
         return ResponseEntity.ok(orderService.getActiveKitchenOrders());
     }
 
-    @PatchMapping("/comandas/{id}/estado")
+    @PatchMapping("/orders/{id}/status")
     public ResponseEntity<KitchenOrderDTOResponse> updateStatus(
             @PathVariable Long id,
             @RequestBody KitchenStatusUpdateDTORequest request) {
