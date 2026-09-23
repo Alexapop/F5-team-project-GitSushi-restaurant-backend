@@ -250,4 +250,50 @@ class OrderServiceTest {
         assertEquals(1, metrics.readyCount());
         assertEquals(0, metrics.totalActiveOrders());
     }
+        @Test
+    void getKitchenMetricsCountsPlacedOrdersAsProcessing() {
+        OrderEntity placedOrder = new OrderEntity();
+        placedOrder.setStatus(OrderStatus.PLACED);
+        placedOrder.setCreatedAt(LocalDateTime.now());
+        placedOrder.setOrderProducts(new ArrayList<>());
+
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of(placedOrder));
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of());
+
+        KitchenMetricsDTOResponse metrics = service.getKitchenMetrics();
+
+        assertEquals(1, metrics.processingCount());
+        assertEquals(0, metrics.delayedCount());
+    }
+
+    @Test
+    void getKitchenMetricsCalculatesAverageForSingleOrder() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setCreatedAt(LocalDateTime.now().minusMinutes(10));
+        order.setOrderProducts(new ArrayList<>());
+
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of(order));
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of());
+
+        KitchenMetricsDTOResponse metrics = service.getKitchenMetrics();
+
+        assertEquals(10.0, metrics.averagePreparationMinutes(), 0.5);
+    }
+
+    @Test
+    void getKitchenMetricsHandlesMultipleReadyOrders() {
+        OrderEntity readyOrder1 = new OrderEntity();
+        readyOrder1.setStatus(OrderStatus.READY);
+        OrderEntity readyOrder2 = new OrderEntity();
+        readyOrder2.setStatus(OrderStatus.READY);
+
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of());
+        when(orderRepository.findByStatus(OrderStatus.READY))
+                .thenReturn(List.of(readyOrder1, readyOrder2));
+
+        KitchenMetricsDTOResponse metrics = service.getKitchenMetrics();
+
+        assertEquals(2, metrics.readyCount());
+    }
 }
