@@ -17,6 +17,7 @@ import dev.team1.enums.OrderStatus;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse;
+import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.products.ProductEntity;
@@ -194,6 +195,31 @@ public class OrderService {
         return orders.stream()
                 .map(this::toKitchenResponse)
                 .toList();
+    }
+
+        @Transactional(readOnly = true)
+    public KitchenMetricsDTOResponse getKitchenMetrics() {
+        List<OrderEntity> activeOrders = orderRepository.findByStatusIn(
+                List.of(OrderStatus.PLACED, OrderStatus.PROCESSING, OrderStatus.DELAYED));
+
+        long total = activeOrders.size();
+
+        double averageMinutes = activeOrders.stream()
+                .mapToLong(order -> ChronoUnit.MINUTES.between(order.getCreatedAt(), LocalDateTime.now()))
+                .average()
+                .orElse(0.0);
+
+        long processingCount = activeOrders.stream()
+                .filter(order -> order.getStatus() == OrderStatus.PROCESSING || order.getStatus() == OrderStatus.PLACED)
+                .count();
+
+        long delayedCount = activeOrders.stream()
+                .filter(this::isOrderDelayed)
+                .count();
+
+        long readyCount = orderRepository.findByStatus(OrderStatus.READY).size();
+
+        return new KitchenMetricsDTOResponse(total, averageMinutes, processingCount, delayedCount, readyCount);
     }
 
         private KitchenOrderDTOResponse toKitchenResponse(OrderEntity order) {
