@@ -21,17 +21,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
-import dev.team1.config.SecurityConfiguration;
 import dev.team1.enums.OrderStatus;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 
 import dev.team1.security.JwtFilter;
 import dev.team1.security.SecurityConfiguration;
-import dev.team1.enums.OrderStatus;
 import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
-import dev.team1.orders.dtos.KitchenOrderDTOResponse;
-import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletRequest;

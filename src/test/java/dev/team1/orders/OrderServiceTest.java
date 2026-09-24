@@ -336,6 +336,8 @@ class OrderServiceTest {
 
         assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
         verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
     void getKitchenMetricsReturnsCorrectCountsAndAverage() {
         OrderEntity processingOrder = new OrderEntity();
         processingOrder.setStatus(OrderStatus.PROCESSING);
