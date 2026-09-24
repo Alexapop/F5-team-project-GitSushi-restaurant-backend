@@ -148,5 +148,20 @@ class AuthIntegrationTest {
             .andExpect(status().isForbidden());
     }
 
+    @Test
+    void me_withValidToken_returns200WithUserData() throws Exception {
+        String token = jwtService.generateAuthToken(user.getEmail(), "ROLE_USER").token();
+
+        mockMvc.perform(get(apiEndpoint + "/auth/me")
+                .cookie(new Cookie("access_token", token)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.email").value(user.getEmail()));
+    }
+
+    @Test
+    void me_withoutToken_returnsForbidden() throws Exception {
+        mockMvc.perform(get(apiEndpoint + "/auth/me"))
+            .andExpect(status().isForbidden());
+    }
 
 }
