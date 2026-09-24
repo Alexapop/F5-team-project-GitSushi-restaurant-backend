@@ -1,8 +1,13 @@
 package dev.team1.users;
 
 import dev.team1.mappers.UserMapper;
+import dev.team1.roles.RoleEntity;
+import dev.team1.roles.RoleRepository;
+import dev.team1.security.PasswordEncoderPort;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -10,6 +15,8 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -18,6 +25,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
@@ -25,19 +36,25 @@ class UserServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private PasswordEncoderPort passwordEncoderPort;
+    private RoleRepository roleRepository;
+
 
     @Mock
-    private UserMapper userMapper;
+    private PasswordEncoderPort passwordEncoderPort;
+
+    private MockedStatic<UserMapper> userMapperMock;
 
     @InjectMocks
     private UserService userService;
 
     private UserRequestDTO validRequest;
     private UserEntity mappedEntity;
+    private RoleEntity roleCustomer;
 
     @BeforeEach
     void setUp() {
+        userMapperMock = Mockito.mockStatic(UserMapper.class);
+
         validRequest = new UserRequestDTO();
         validRequest.setFirstName("Ahmet");
         validRequest.setLastName("Yılmaz");
@@ -55,6 +72,15 @@ class UserServiceTest {
         mappedEntity.setAddress("Calle Mayor 5");
         mappedEntity.setPostalCode("28001");
         mappedEntity.setCity("Madrid");
+        mappedEntity.setCreatedAt(Instant.now());
+
+        roleCustomer = new RoleEntity();
+        roleCustomer.setName("ROLE_CUSTOMER");
+    }
+
+    @AfterEach
+    void tearDown() {
+        userMapperMock.close();
     }
 
     @Test
@@ -63,21 +89,24 @@ class UserServiceTest {
         savedEntity.setEmail("ahmet@example.com");
         savedEntity.setPassword("encoded-secret123");
 
-        UserResponseDTO expectedResponse = new UserResponseDTO();
-        expectedResponse.setId(1L);
-        expectedResponse.setEmail("ahmet@example.com");
+        UUID mockId = UUID.randomUUID();
+        UserResponseDTO expectedResponse = UserResponseDTO.builder()
+            .id(mockId)
+            .email("ahmet@example.com")
+            .build();
 
         when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
-        when(userMapper.toEntity(validRequest)).thenReturn(mappedEntity);
+        userMapperMock.when(() -> UserMapper.toEntity(validRequest)).thenReturn(mappedEntity);
         when(passwordEncoderPort.encode("secret123")).thenReturn("encoded-secret123");
         when(userRepository.save(any(UserEntity.class))).thenReturn(savedEntity);
-        when(userMapper.toResponseDTO(savedEntity)).thenReturn(expectedResponse);
+        userMapperMock.when(() -> UserMapper.toDTO(savedEntity)).thenReturn(expectedResponse);
+        when(roleRepository.findByName("ROLE_CUSTOMER")).thenReturn(Optional.of(roleCustomer));
 
         UserResponseDTO result = userService.registerUser(validRequest);
 
         assertThat(result).isNotNull();
-        assertThat(result.getId()).isEqualTo(1L);
-        assertThat(result.getEmail()).isEqualTo("ahmet@example.com");
+        assertThat(result.id()).isEqualTo(mockId);
+        assertThat(result.email()).isEqualTo("ahmet@example.com");
         verify(userRepository).save(mappedEntity);
     }
 
@@ -91,7 +120,7 @@ class UserServiceTest {
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("El nombre es obligatorio");
 
-        verifyNoInteractions(userRepository, passwordEncoderPort, userMapper);
+        verifyNoInteractions(userRepository, passwordEncoderPort);
     }
 
     @ParameterizedTest

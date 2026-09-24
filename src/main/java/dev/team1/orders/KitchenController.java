@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import dev.team1.enums.OrderStatus;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse;
+import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
 import dev.team1.orders.dtos.KitchenStatusUpdateDTORequest;
 
 @RestController
@@ -27,6 +27,11 @@ public class KitchenController {
     @GetMapping("/orders")
     public ResponseEntity<List<KitchenOrderDTOResponse>> getActiveOrders() {
         return ResponseEntity.ok(orderService.getActiveKitchenOrders());
+    }
+
+        @GetMapping("/metrics")
+    public ResponseEntity<KitchenMetricsDTOResponse> getMetrics() {
+        return ResponseEntity.ok(orderService.getKitchenMetrics());
     }
 
     @PatchMapping("/orders/{id}/status")

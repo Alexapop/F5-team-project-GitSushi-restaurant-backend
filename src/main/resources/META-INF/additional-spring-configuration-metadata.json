@@ -4,6 +4,11 @@
             "name": "api-endpoint",
             "type": "java.lang.String",
             "description": "A variable for providing a version of API with requests"
+        },
+        {
+            "name": "jwt-secret",
+            "type": "java.lang.String",
+            "description": "JWT secret for generating access and refresh auth tokens"
         }
     ]
 }

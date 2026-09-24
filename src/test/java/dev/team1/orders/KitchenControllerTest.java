@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -25,6 +26,21 @@ import dev.team1.enums.OrderStatus;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 
+import dev.team1.security.JwtFilter;
+import dev.team1.security.SecurityConfiguration;
+import dev.team1.enums.OrderStatus;
+import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
+import dev.team1.orders.dtos.KitchenOrderDTOResponse;
+import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import org.springframework.security.test.context.support.WithMockUser;
+
+
 @WebMvcTest(controllers = KitchenController.class, properties = "api-endpoint=api/v1")
 @Import(SecurityConfiguration.class)
 class KitchenControllerTest {
@@ -35,7 +51,23 @@ class KitchenControllerTest {
     @MockitoBean
     private OrderService service;
 
+    @MockitoBean
+    JwtFilter jwtFilter; 
+
+        @BeforeEach 
+    void setup() throws Exception {
+        doAnswer(invocation -> {
+            ServletRequest req = invocation.getArgument(0);
+            ServletResponse res = invocation.getArgument(1);
+            FilterChain chain = invocation.getArgument(2);
+            chain.doFilter(req, res);
+            return null;
+        }).when(jwtFilter).doFilter(any(), any(), any());
+    }
+
+
     @Test
+    @WithMockUser("COOK")
     void getActiveOrdersReturnsKitchenOrders() throws Exception {
         when(service.getActiveKitchenOrders()).thenReturn(List.of(kitchenResponse(OrderStatus.PROCESSING, false)));
 
@@ -49,6 +81,7 @@ class KitchenControllerTest {
     }
 
     @Test
+    @WithMockUser("COOK")
     void getActiveOrdersReturnsEmptyListWhenNoOrders() throws Exception {
         when(service.getActiveKitchenOrders()).thenReturn(List.of());
 
@@ -58,6 +91,35 @@ class KitchenControllerTest {
     }
 
     @Test
+    @WithMockUser("COOK")
+    void getMetricsReturnsKitchenMetrics() throws Exception {
+        KitchenMetricsDTOResponse metrics = new KitchenMetricsDTOResponse(3, 8.5, 2, 1, 0);
+        when(service.getKitchenMetrics()).thenReturn(metrics);
+
+        mockMvc.perform(get("/api/v1/kitchen/metrics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalActiveOrders").value(3))
+                .andExpect(jsonPath("$.averagePreparationMinutes").value(8.5))
+                .andExpect(jsonPath("$.processingCount").value(2))
+                .andExpect(jsonPath("$.delayedCount").value(1))
+                .andExpect(jsonPath("$.readyCount").value(0));
+        verify(service).getKitchenMetrics();
+    }
+
+    @Test
+    @WithMockUser("COOK")
+    void getMetricsReturnsZerosWhenNoActiveOrders() throws Exception {
+        KitchenMetricsDTOResponse metrics = new KitchenMetricsDTOResponse(0, 0.0, 0, 0, 0);
+        when(service.getKitchenMetrics()).thenReturn(metrics);
+
+        mockMvc.perform(get("/api/v1/kitchen/metrics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalActiveOrders").value(0));
+        verify(service).getKitchenMetrics();
+    }
+
+    @Test
+    @WithMockUser("COOK")
     void updateStatusReturnsUpdatedOrder() throws Exception {
         when(service.updateKitchenStatus(1L, OrderStatus.READY))
                 .thenReturn(kitchenResponse(OrderStatus.READY, false));
@@ -73,6 +135,7 @@ class KitchenControllerTest {
     }
 
     @Test
+    @WithMockUser("COOK")
     void updateStatusReturnsBadRequestForInvalidStatus() throws Exception {
         when(service.updateKitchenStatus(1L, OrderStatus.PAID))
                 .thenThrow(new ResponseStatusException(
@@ -88,6 +151,7 @@ class KitchenControllerTest {
     }
 
     @Test
+    @WithMockUser("COOK")
     void updateStatusReturnsNotFoundWhenOrderMissing() throws Exception {
         when(service.updateKitchenStatus(99L, OrderStatus.READY))
                 .thenThrow(new ResponseStatusException(
