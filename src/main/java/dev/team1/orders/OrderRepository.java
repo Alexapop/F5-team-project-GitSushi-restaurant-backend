@@ -8,5 +8,6 @@ import dev.team1.enums.OrderStatus;
 public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
 
    List <OrderEntity> findByStatus(OrderStatus status);
+   List<OrderEntity> findByStatusIn(List<OrderStatus> statuses);
 
 }
