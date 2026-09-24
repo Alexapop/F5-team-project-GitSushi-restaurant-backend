@@ -21,7 +21,7 @@ import lombok.Setter;
 
 @Entity 
 @Table(name = "roles")
-@NoArgsConstructor 
+@NoArgsConstructor
 @Getter
 @Setter 
 public class RoleEntity {
