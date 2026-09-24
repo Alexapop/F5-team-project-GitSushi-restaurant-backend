@@ -26,8 +26,10 @@ import org.springframework.web.server.ResponseStatusException;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
+import dev.team1.orders.dtos.KitchenOrderDTOResponse;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
+import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
 import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
@@ -199,6 +201,141 @@ class OrderServiceTest {
         return table;
     }
         @Test
+    void getActiveKitchenOrdersReturnsOrdersMappedToKitchenDTO() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setChefNote("Extra spicy");
+        order.setCreatedAt(LocalDateTime.now());
+        ProductEntity product = product(null);
+        OrderProductEntity op = OrderProductEntity.builder()
+                .order(order).product(product).quantity(new BigDecimal("3")).build();
+        order.setOrderProducts(List.of(op));
+
+        when(orderRepository.findByStatusIn(
+                List.of(OrderStatus.PLACED, OrderStatus.PROCESSING, OrderStatus.DELAYED)))
+                .thenReturn(List.of(order));
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders();
+
+        assertEquals(1, result.size());
+        KitchenOrderDTOResponse dto = result.get(0);
+        assertEquals(OrderStatus.PROCESSING, dto.status());
+        assertEquals("Extra spicy", dto.chefNote());
+        assertEquals(1, dto.items().size());
+        assertEquals("Sushi", dto.items().get(0).productName());
+        assertEquals(new BigDecimal("3"), dto.items().get(0).quantity());
+    }
+
+    @Test
+    void getActiveKitchenOrdersRecentOrderIsNotDelayed() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setOrderProducts(new ArrayList<>());
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of(order));
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders();
+
+        assertEquals(false, result.get(0).isDelayed());
+    }
+
+    @Test
+    void getActiveKitchenOrdersOldOrderIsDelayed() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setCreatedAt(LocalDateTime.now().minusMinutes(20));
+        order.setOrderProducts(new ArrayList<>());
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of(order));
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders();
+
+        assertEquals(true, result.get(0).isDelayed());
+    }
+
+    @Test
+    void updateKitchenStatusValidTransitionUpdatesAndSaves() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PLACED);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setOrderProducts(new ArrayList<>());
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        KitchenOrderDTOResponse response = service.updateKitchenStatus(1L, OrderStatus.PROCESSING);
+
+        assertEquals(OrderStatus.PROCESSING, order.getStatus());
+        assertEquals(OrderStatus.PROCESSING, response.status());
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void updateKitchenStatusInvalidStatusThrowsBadRequest() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PLACED);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.updateKitchenStatus(1L, OrderStatus.PAID));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void updateKitchenStatusDeliveredOrderThrowsConflict() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.DELIVERED);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.updateKitchenStatus(1L, OrderStatus.READY));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void updateKitchenStatusOrderNotFoundThrowsNotFound() {
+        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.updateKitchenStatus(99L, OrderStatus.READY));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+    }
+        @Test
+    void getActiveKitchenOrdersReturnsEmptyListWhenNoActiveOrders() {
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of());
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders();
+
+        assertEquals(0, result.size());
+    }
+
+    @Test
+    void updateKitchenStatusRejectsNullStatus() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PLACED);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.updateKitchenStatus(1L, null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void updateKitchenStatusOntheWayOrderThrowsConflict() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.updateKitchenStatus(1L, OrderStatus.READY));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
     void getKitchenMetricsReturnsCorrectCountsAndAverage() {
         OrderEntity processingOrder = new OrderEntity();
         processingOrder.setStatus(OrderStatus.PROCESSING);
