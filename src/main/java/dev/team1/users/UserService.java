@@ -34,7 +34,13 @@ public class UserService {
         UserEntity newUser = UserMapper.toEntity(requestDTO);
         newUser.setPassword(passwordEncoderPort.encode(newUser.getPassword()));
         
-        RoleEntity roleCustomer = roleRepository.findByName("CUSTOMER");
+        RoleEntity roleCustomer = roleRepository.findByName("ROLE_CUSTOMER")
+            .orElseGet(() -> {
+                RoleEntity role = new RoleEntity();
+                role.setName("ROLE_CUSTOMER");
+                roleRepository.save(role);
+                return role;
+            });
         newUser.getRoles().add(roleCustomer);
 
         UserEntity savedUser = userRepository.save(newUser);
