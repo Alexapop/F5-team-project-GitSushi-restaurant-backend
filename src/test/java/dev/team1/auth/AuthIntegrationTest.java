@@ -131,4 +131,22 @@ class AuthIntegrationTest {
     }
 
 
+    @Test
+    void refresh_withValidRefreshToken_returns204AndSetsNewCookies() throws Exception {
+        String refreshToken = jwtService.generateAuthToken(user.getEmail(), "ROLE_USER").refreshToken();
+
+        mockMvc.perform(get(apiEndpoint + "/auth/refresh")
+                .cookie(new Cookie("refresh_token", refreshToken)))
+            .andExpect(status().isNoContent())
+            .andExpect(cookie().exists("access_token"))
+            .andExpect(cookie().exists("refresh_token"));
+    }
+
+    @Test
+    void refresh_withoutRefreshToken_returnsError() throws Exception {
+        mockMvc.perform(get(apiEndpoint + "/auth/refresh"))
+            .andExpect(status().isForbidden());
+    }
+
+
 }
