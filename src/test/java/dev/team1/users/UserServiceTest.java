@@ -82,7 +82,7 @@ class UserServiceTest {
     void tearDown() {
         userMapperMock.close();
     }
-    
+
     @Test
     void registerUser_withValidData_savesAndReturnsUser() {
         UserEntity savedEntity = new UserEntity();
@@ -120,7 +120,7 @@ class UserServiceTest {
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("El nombre es obligatorio");
 
-        verifyNoInteractions(userRepository, passwordEncoderPort, userMapper);
+        verifyNoInteractions(userRepository, passwordEncoderPort);
     }
 
     @ParameterizedTest

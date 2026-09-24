@@ -23,6 +23,8 @@ class TableControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    
+
     @MockitoBean
     private TableService tableService;
 
