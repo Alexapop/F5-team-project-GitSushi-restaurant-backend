@@ -103,5 +103,32 @@ class AuthIntegrationTest {
             .andExpect(status().isUnauthorized());
     }
 
-    
+
+    @Test
+    void logout_withValidToken_returns204() throws Exception {
+        String token = jwtService.generateAuthToken(user.getEmail(), "ROLE_USER").token();
+
+        mockMvc.perform(get(apiEndpoint + "/auth/logout")
+                .cookie(new Cookie("access_token", token)))
+            .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void logout_withoutToken_returnsForbidden() throws Exception {
+        // /auth/logout не в publicURIList и не имеет permitAll в SecurityConfiguration
+        mockMvc.perform(get(apiEndpoint + "/auth/logout"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void logout_clearsCookiesWithEmptyValue() throws Exception {
+        String token = jwtService.generateAuthToken(user.getEmail(), "ROLE_USER").token();
+
+        mockMvc.perform(get(apiEndpoint + "/auth/logout")
+                .cookie(new Cookie("access_token", token)))
+            .andExpect(cookie().value("access_token", ""))
+            .andExpect(cookie().value("refresh_token", ""));
+    }
+
+
 }
