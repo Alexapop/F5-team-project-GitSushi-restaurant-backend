@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import java.math.BigDecimal;
 import java.util.List;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -21,12 +22,20 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
-import dev.team1.config.SecurityConfiguration;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
+import dev.team1.security.JwtFilter;
+import dev.team1.security.SecurityConfiguration;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import org.springframework.security.test.context.support.WithMockUser;
 
 @WebMvcTest(controllers = OrderController.class, properties = "api-endpoint=api/v1")
 @Import(SecurityConfiguration.class)
@@ -36,9 +45,24 @@ class OrderControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
+    JwtFilter jwtFilter; 
+
+    @MockitoBean
     private OrderService service;
 
+    @BeforeEach 
+    void setup() throws Exception {
+        doAnswer(invocation -> {
+            ServletRequest req = invocation.getArgument(0);
+            ServletResponse res = invocation.getArgument(1);
+            FilterChain chain = invocation.getArgument(2);
+            chain.doFilter(req, res);
+            return null;
+        }).when(jwtFilter).doFilter(any(), any(), any());
+    }
+
     @Test
+    @WithMockUser("CUSTOMER")
     void createOrderReturnsCreatedOrder() throws Exception {
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
@@ -62,6 +86,7 @@ class OrderControllerTest {
     }
 
     @Test
+    @WithMockUser("CUSTOMER")
     void createOrderPassesDeviceIdentifierToService() throws Exception {
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
@@ -80,6 +105,7 @@ class OrderControllerTest {
     }
 
     @Test
+    @WithMockUser("CUSTOMER")
     void createOnlineOrderPassesMissingDeviceIdentifierToService() throws Exception {
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
@@ -97,6 +123,7 @@ class OrderControllerTest {
     }
 
     @Test
+    @WithMockUser("CUSTOMER")
     void createOnsiteOrderReturnsBadRequestWhenDeviceIdentifierIsMissing() throws Exception {
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
@@ -115,6 +142,7 @@ class OrderControllerTest {
     }
 
     @Test
+    @WithMockUser("CUSTOMER")
     void createOnsiteOrderReturnsNotFoundWhenDeviceIsUnknown() throws Exception {
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
@@ -133,7 +161,8 @@ class OrderControllerTest {
         verify(service).createOrder(request, "unknown-device");
     }
 
-        @Test
+    @Test
+    @WithMockUser("CUSTOMER")
         void createOrderRejectsMissingChannel() throws Exception {
                 mockMvc.perform(post("/api/v1/orders")
                                                 .contentType(MediaType.APPLICATION_JSON)
@@ -145,6 +174,7 @@ class OrderControllerTest {
         }
 
         @Test
+    @WithMockUser("CUSTOMER")
         void createOrderRejectsMissingPaymentMethod() throws Exception {
                 mockMvc.perform(post("/api/v1/orders")
                                                 .contentType(MediaType.APPLICATION_JSON)
@@ -156,6 +186,7 @@ class OrderControllerTest {
         }
 
         @Test
+    @WithMockUser("CUSTOMER")
         void createOrderRejectsInvalidEnumValue() throws Exception {
                 mockMvc.perform(post("/api/v1/orders")
                                                 .contentType(MediaType.APPLICATION_JSON)
@@ -167,6 +198,7 @@ class OrderControllerTest {
         }
 
     @Test
+    @WithMockUser("CUSTOMER")
     void markAsPaidReturnsPaidOrder() throws Exception {
         when(service.markAsPaid(1L)).thenReturn(response(OrderStatus.PAID));
 
@@ -178,6 +210,7 @@ class OrderControllerTest {
     }
 
     @Test
+    @WithMockUser("CUSTOMER")
     void getByIdReturnsOrderStatus() throws Exception {
         when(service.getById(1L)).thenReturn(response(OrderStatus.PAID));
 
@@ -189,6 +222,7 @@ class OrderControllerTest {
     }
 
     @Test
+    @WithMockUser("CUSTOMER")
     void getByStatusReturnsPaidOrders() throws Exception {
         when(service.getByStatus(OrderStatus.PAID))
                 .thenReturn(List.of(response(OrderStatus.PAID)));

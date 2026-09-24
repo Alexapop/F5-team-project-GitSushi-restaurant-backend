@@ -28,16 +28,24 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import dev.team1.config.SecurityConfiguration;
 import dev.team1.contracts.IProductService;
 import dev.team1.enums.ProductCategory;
 import dev.team1.products.dtos.ProductDTOPatchRequest;
 import dev.team1.products.dtos.ProductDTORequest;
 import dev.team1.products.dtos.ProductDTOResponse;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
+import dev.team1.security.JwtFilter;
+import dev.team1.security.SecurityConfiguration;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.JsonNode;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import org.springframework.security.test.context.support.WithMockUser;
 
 @WebMvcTest(controllers = ProductController.class)
 @Import(SecurityConfiguration.class)
@@ -49,14 +57,25 @@ public class ProductControllerTest {
     @MockitoBean 
     IProductService service;
 
+    @MockitoBean
+    JwtFilter jwtFilter; 
+
     @Autowired 
     ObjectMapper mapper;
 
     private List<ProductDTOResponse> mockProducts;
 
     @BeforeEach 
-    void setup() {
+    void setup() throws Exception {
         mockProducts = ProductTestData.sampleDTOs();
+
+        doAnswer(invocation -> {
+            ServletRequest req = invocation.getArgument(0);
+            ServletResponse res = invocation.getArgument(1);
+            FilterChain chain = invocation.getArgument(2);
+            chain.doFilter(req, res);
+            return null;
+        }).when(jwtFilter).doFilter(any(), any(), any());
     }
 
     @Test 
@@ -138,6 +157,7 @@ public class ProductControllerTest {
     }
 
     @Test 
+    @WithMockUser(roles = "ADMIN")
     void testAdministration_shouldReturnAllProducts() throws Exception {
         Pageable pageable = PageRequest.of(0, 20);
 
@@ -173,6 +193,7 @@ public class ProductControllerTest {
     }
 
     @Test 
+    @WithMockUser(roles = "ADMIN")
     void testGetById_shouldReturnProductById() throws Exception {
 
         ProductDTOResponse mockItem = mockProducts.get(3);
@@ -200,6 +221,7 @@ public class ProductControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void testGetById_shouldReturn404NotFound() throws Exception {
         Long missingId = 500L;
         when(service.getById(missingId))
@@ -255,6 +277,7 @@ public class ProductControllerTest {
 
 
     @Test 
+    @WithMockUser(roles = "ADMIN")
     void testStore_shouldStoreTheProduct() throws Exception {
 
         ProductDTORequest mockReqDTO = ProductTestData.samplePOSTRequestDTO();
@@ -274,8 +297,6 @@ public class ProductControllerTest {
                     "exclusive": false
                 }
                 """;
-
-        System.out.println(mapper.writeValueAsString(mockReqDTO));
 
         when(service.store(mockReqDTO)).thenReturn(mockRespDTO);
         MockHttpServletResponse response = mockMvc.perform(post("/api/v1/products")
@@ -298,6 +319,7 @@ public class ProductControllerTest {
     }
 
     @Test 
+    @WithMockUser(roles = "ADMIN")
     void testUpdate_shouldUpdateAnyFields() throws Exception {
 
         ProductDTOPatchRequest mockReqDTO = ProductTestData.sampleNameUpdateReq();
@@ -322,6 +344,7 @@ public class ProductControllerTest {
     }
 
     @Test 
+    @WithMockUser(roles = "ADMIN")
     void testUpdate_shouldUpdateAvailableField() throws Exception {
 
         ProductDTOPatchRequest mockReqDTO = ProductTestData.sampleAvailableUpdateReq();

@@ -1,4 +1,4 @@
-package dev.team1.users;
+package dev.team1.security;
 
 public interface PasswordEncoderPort {
 

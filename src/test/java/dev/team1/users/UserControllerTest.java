@@ -15,6 +15,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.UUID;
+
 class UserControllerTest {
 
     private MockMvc mockMvc;
@@ -45,9 +47,12 @@ class UserControllerTest {
 
     @Test
     void createUser_withValidData_returns201AndCreatedUser() throws Exception {
-        UserResponseDTO savedUser = new UserResponseDTO();
-        savedUser.setId(1L);
-        savedUser.setEmail("ahmet@example.com");
+        
+        UUID mockId = UUID.randomUUID();
+        UserResponseDTO savedUser = UserResponseDTO.builder()
+            .id(mockId)
+            .email("ahmet@example.com")
+            .build();
 
         when(userService.registerUser(any(UserRequestDTO.class))).thenReturn(savedUser);
 
@@ -55,7 +60,7 @@ class UserControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validUserJson()))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.id").value(1))
+            .andExpect(jsonPath("$.id").value(mockId.toString()))
             .andExpect(jsonPath("$.email").value("ahmet@example.com"));
     }
 
