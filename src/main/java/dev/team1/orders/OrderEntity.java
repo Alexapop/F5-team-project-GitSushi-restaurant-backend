@@ -8,6 +8,7 @@ import java.util.List;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
+import dev.team1.enums.PaymentStatus;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.tables.TableEntity;
 import jakarta.persistence.CascadeType;
@@ -59,6 +60,9 @@ public class OrderEntity {
     private String chefNote;
 
     @Enumerated(EnumType.STRING)
+    private PaymentStatus paymentStatus;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OrderStatus status;
 
@@ -77,7 +81,7 @@ public class OrderEntity {
     @JoinColumn(name = "id_table")
     private TableEntity table;
 
-        @Column(nullable = false, updatable = false)
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
