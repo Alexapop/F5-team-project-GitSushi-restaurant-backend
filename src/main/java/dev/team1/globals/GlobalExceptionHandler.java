@@ -4,11 +4,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 import dev.team1.products.exceptions.ProductException;
 import dev.team1.products.exceptions.ProductExceptionConflict;
@@ -44,7 +46,7 @@ public class GlobalExceptionHandler {
                 .body("Validation failed: " + exception.getFieldError().getDefaultMessage());
     }
 
-    @ExceptionHandler({HttpMessageNotReadableException.class, MissingRequestHeaderException.class})
+    @ExceptionHandler({ HttpMessageNotReadableException.class, MissingRequestHeaderException.class })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseEntity<String> handleMalformedRequest(Exception exception) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(exception.getMessage());
@@ -80,6 +82,20 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ResponseEntity<String> handleGenericException(Exception exception) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(exception.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<String> handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("Invalid value '" + exception.getValue() + "' for parameter '" + exception.getName() + "'");
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<String> handleMissingParameter(MissingServletRequestParameterException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("Missing required parameter '" + exception.getParameterName() + "'");
     }
 
 }

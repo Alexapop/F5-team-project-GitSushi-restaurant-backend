@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -16,6 +17,8 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -58,8 +61,8 @@ class OrderServiceTest {
         when(tableRepository.findByDeviceIdentifier("tablet-12")).thenReturn(Optional.of(table(12)));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
-            List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
-            "No onions", OrderChannel.ONSITE, PaymentMethod.CREDITCARD);
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
+                "No onions", OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE);
 
         OrderDTOResponse response = service.createOrder(request, "tablet-12");
 
@@ -74,7 +77,7 @@ class OrderServiceTest {
         OrderEntity savedOrder = captor.getValue();
         assertEquals("No onions", savedOrder.getChefNote());
         assertEquals(OrderChannel.ONSITE, savedOrder.getChannel());
-        assertEquals(PaymentMethod.CREDITCARD, savedOrder.getPaymentMethod());
+        assertEquals(PaymentMethod.CARD_ONSITE, savedOrder.getPaymentMethod());
         assertEquals(1, savedOrder.getOrderProducts().size());
         assertSame(product, savedOrder.getOrderProducts().get(0).getProduct());
         assertSame(savedOrder, savedOrder.getOrderProducts().get(0).getOrder());
@@ -87,8 +90,8 @@ class OrderServiceTest {
         when(tableRepository.findByDeviceIdentifier("tablet-12")).thenReturn(Optional.of(table(12)));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
-            List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
-            null, OrderChannel.ONSITE, PaymentMethod.CASH);
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
+                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
 
         OrderDTOResponse response = service.createOrder(request, "tablet-12");
 
@@ -98,7 +101,7 @@ class OrderServiceTest {
         assertEquals(new BigDecimal("19.80"), response.total());
         assertEquals(OrderStatus.PLACED, response.status());
         assertEquals(OrderChannel.ONSITE, response.channel());
-        assertEquals(PaymentMethod.CASH, response.paymentMethod());
+        assertEquals(PaymentMethod.CASH_ONSITE, response.paymentMethod());
     }
 
     @Test
@@ -142,7 +145,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, OrderChannel.ONLINE, PaymentMethod.CREDITCARD);
+                null, OrderChannel.ONLINE, PaymentMethod.CASH_ON_DELIVERY);
 
         OrderDTOResponse response = service.createOrder(request, null);
 
@@ -191,7 +194,7 @@ class OrderServiceTest {
         when(productRepository.findById(2L)).thenReturn(Optional.of(product));
         return new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, OrderChannel.ONSITE, PaymentMethod.CASH);
+                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
     }
 
     private TableEntity table(int tableNumber) {
@@ -200,7 +203,8 @@ class OrderServiceTest {
         table.setDeviceIdentifier("tablet-12");
         return table;
     }
-        @Test
+
+    @Test
     void getActiveKitchenOrdersReturnsOrdersMappedToKitchenDTO() {
         OrderEntity order = new OrderEntity();
         order.setStatus(OrderStatus.PROCESSING);
@@ -303,7 +307,8 @@ class OrderServiceTest {
 
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
     }
-        @Test
+
+    @Test
     void getActiveKitchenOrdersReturnsEmptyListWhenNoActiveOrders() {
         when(orderRepository.findByStatusIn(any())).thenReturn(List.of());
 
@@ -389,7 +394,8 @@ class OrderServiceTest {
         assertEquals(1, metrics.readyCount());
         assertEquals(0, metrics.totalActiveOrders());
     }
-        @Test
+
+    @Test
     void getKitchenMetricsCountsPlacedOrdersAsProcessing() {
         OrderEntity placedOrder = new OrderEntity();
         placedOrder.setStatus(OrderStatus.PLACED);
@@ -435,4 +441,25 @@ class OrderServiceTest {
 
         assertEquals(2, metrics.readyCount());
     }
+
+    @ParameterizedTest
+    @CsvSource({
+            "ONSITE, ONLINE_CARD",
+            "ONSITE, CASH_ON_DELIVERY",
+            "ONLINE, CASH_ONSITE",
+            "ONLINE, CARD_ONSITE"
+    })
+    void createOrderRejectsInvalidChannelPaymentMethodCombination(
+            OrderChannel channel, PaymentMethod paymentMethod) {
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, channel, paymentMethod);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.createOrder(request, "tablet-12"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verifyNoInteractions(productRepository, tableRepository, orderRepository);
+    }
+
 }
