@@ -25,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
+import dev.team1.enums.PaymentStatus;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.security.JwtFilter;
@@ -80,6 +81,7 @@ class OrderControllerTest {
                                 .andExpect(jsonPath("$.status").value("PLACED"))
                                 .andExpect(jsonPath("$.channel").value("ONSITE"))
                                 .andExpect(jsonPath("$.paymentMethod").value("CARD_ONSITE"))
+                                .andExpect(jsonPath("$.paymentStatus").value("PENDING_CARD_TERMINAL"))
                                 .andExpect(jsonPath("$.tableNumber").value(12))
                                 .andExpect(jsonPath("$.total").value(22.0));
                 verify(service).createOrder(request, "tablet-12");
@@ -198,7 +200,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "COOK")
         void markAsPaidReturnsPaidOrder() throws Exception {
                 when(service.markAsPaid(1L)).thenReturn(response(OrderStatus.PAID));
 
@@ -236,9 +238,25 @@ class OrderControllerTest {
         }
 
         private OrderDTOResponse response(OrderStatus orderStatus) {
-                return new OrderDTOResponse(1L, new BigDecimal("20.00"), null,
-                                new BigDecimal("0.00"), 10, new BigDecimal("22.00"),
-                                new BigDecimal("2.00"), "No onions", orderStatus,
-                                OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE, 12);
+                PaymentStatus paymentStatus = null;
+
+                if (orderStatus != OrderStatus.PAID) {
+                        paymentStatus = PaymentStatus.PENDING_CARD_TERMINAL;
+                }
+
+                return new OrderDTOResponse(
+                                1L,
+                                new BigDecimal("20.00"),
+                                null,
+                                new BigDecimal("0.00"),
+                                10,
+                                new BigDecimal("22.00"),
+                                new BigDecimal("2.00"),
+                                "No onions",
+                                orderStatus,
+                                OrderChannel.ONSITE,
+                                PaymentMethod.CARD_ONSITE,
+                                12,
+                                paymentStatus);
         }
 }

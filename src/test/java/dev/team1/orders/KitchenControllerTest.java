@@ -164,6 +164,6 @@ class KitchenControllerTest {
     private KitchenOrderDTOResponse kitchenResponse(OrderStatus status, boolean isDelayed) {
         return new KitchenOrderDTOResponse(
                 1L, status, "No onions", LocalDateTime.now(), isDelayed,
-                List.of(new KitchenOrderItemDTO("Sushi", new BigDecimal("2"))));
+                List.of(new KitchenOrderItemDTO("Sushi", new BigDecimal("2"))), null);
     }
 }
