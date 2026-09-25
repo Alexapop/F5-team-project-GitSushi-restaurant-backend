@@ -6,6 +6,7 @@ import java.time.temporal.ChronoUnit;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
+import dev.team1.enums.PaymentMethod;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse;
@@ -32,6 +34,10 @@ public class OrderService {
     private static final int VAT_RATE = 10;
         private static final int KITCHEN_TARGET_MINUTES = 15;
 
+    private static final Map<OrderChannel, List<PaymentMethod>> ALLOWED_PAYMENT_METHODS = Map.of(
+            OrderChannel.ONSITE, List.of(PaymentMethod.CASH_ONSITE, PaymentMethod.CARD_ONSITE),
+            OrderChannel.ONLINE, List.of(PaymentMethod.ONLINE_CARD, PaymentMethod.CASH_ON_DELIVERY));
+
     private final OrderRepository orderRepository;
     private final ProductRepository productsRepository;
     private final TableRepository tableRepository;
@@ -46,6 +52,8 @@ public class OrderService {
 
     @Transactional
     public OrderDTOResponse createOrder(OrderDTORequest request, String deviceIdentifier) {
+        validatePaymentMethod(request.channel(), request.paymentMethod());
+
         OrderEntity order = new OrderEntity();
         List<OrderProductEntity> ops = new ArrayList<>();
 
@@ -98,6 +106,18 @@ public class OrderService {
 
         OrderEntity savedOrder = orderRepository.save(order);
         return toResponse(savedOrder);
+    }
+
+    public List<PaymentMethod> getAllowedPaymentMethods(OrderChannel channel) {
+        return ALLOWED_PAYMENT_METHODS.get(channel);
+    }
+
+    private void validatePaymentMethod(OrderChannel channel, PaymentMethod paymentMethod) {
+        if (!ALLOWED_PAYMENT_METHODS.get(channel).contains(paymentMethod)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Payment method " + paymentMethod + " is not allowed for channel " + channel);
+        }
     }
 
     private TableEntity resolveTable(OrderChannel channel, String deviceIdentifier) {
