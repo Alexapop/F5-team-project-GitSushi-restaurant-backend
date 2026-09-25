@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
+import dev.team1.enums.PaymentMethod;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import jakarta.validation.Valid;
@@ -55,4 +57,11 @@ public class OrderController {
             @RequestParam OrderStatus status) {
         return ResponseEntity.ok(orderService.getByStatus(status));
     }
+
+    @GetMapping("/payment-methods")
+    public ResponseEntity<List<PaymentMethod>> getPaymentMethods(
+            @RequestParam OrderChannel channel) {
+        return ResponseEntity.ok(orderService.getAllowedPaymentMethods(channel));
+    }
+
 }
