@@ -84,6 +84,9 @@ public class OrderEntity {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
