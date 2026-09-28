@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import dev.team1.security.dtos.JwtAuthenticationDTO;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -60,6 +61,10 @@ public class JwtService {
     }
 
     public boolean validateJwtToken(String token) {
+        if (token == null || token.isBlank() || token.isEmpty()) {
+            throw new JwtException("Token doesn't exist");
+        }
+        
         Jwts.parser()
             .verifyWith(getSignKey())
             .build()

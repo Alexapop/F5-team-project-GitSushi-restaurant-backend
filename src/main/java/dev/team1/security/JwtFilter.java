@@ -61,12 +61,16 @@ public class JwtFilter extends OncePerRequestFilter {
         String uri = request.getRequestURI();
         String method = request.getMethod();
 
-        if (
-            !publicURIList.stream().anyMatch(pu -> 
-                pu.url().equals(uri) && 
-                pu.method().name().equals(method)
-            )
-        ) {
+        boolean sendCsrfOnly = (
+            uri.equals("/api/v1/auth/me") &&
+            method.equals(HttpMethod.GET.name()) &&
+            (token == null || token.isBlank())
+        );
+
+        if (!publicURIList.stream().anyMatch(pu -> pu.url().equals(uri) && pu.method().name().equals(method))
+                && !sendCsrfOnly
+            ) {
+
             try {
                 jwtService.validateJwtToken(token);
                     setCustomUserDetailsToSecurityContextHolder(token);
@@ -76,7 +80,7 @@ public class JwtFilter extends OncePerRequestFilter {
             } catch (JwtException exc) {
                 resolver.resolveException(request, response, null, exc);
                 return;
-            } catch (IllegalArgumentException exc) {}
+            } 
         }
         
         filterChain.doFilter(request, response);
@@ -91,7 +95,9 @@ public class JwtFilter extends OncePerRequestFilter {
         // }
         // return null;
 
-        // But we use other one bacause we want JWT-token to be in httpOnly-cookie to awoid XSS attacks by JavaScript:
+        // But we use other one (Cookie Based Authentication) bacause 
+        // we want JWT-token to be in httpOnly-cookie to awoid XSS 
+        // attacks through JavaScript:
 
         if (request.getCookies() == null) {
             return null;
