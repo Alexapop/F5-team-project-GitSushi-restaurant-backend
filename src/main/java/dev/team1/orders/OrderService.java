@@ -16,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
+import dev.team1.enums.PaymentStatus;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse;
@@ -37,6 +38,10 @@ public class OrderService {
     private static final Map<OrderChannel, List<PaymentMethod>> ALLOWED_PAYMENT_METHODS = Map.of(
             OrderChannel.ONSITE, List.of(PaymentMethod.CASH_ONSITE, PaymentMethod.CARD_ONSITE),
             OrderChannel.ONLINE, List.of(PaymentMethod.ONLINE_CARD, PaymentMethod.CASH_ON_DELIVERY));
+
+    private static final Map<PaymentMethod, PaymentStatus> PAYMENT_STATUS = Map.of(
+            PaymentMethod.CASH_ONSITE, PaymentStatus.PENDING_CASH,
+            PaymentMethod.CARD_ONSITE, PaymentStatus.PENDING_CARD_TERMINAL);
 
     private final OrderRepository orderRepository;
     private final ProductRepository productsRepository;
@@ -101,6 +106,7 @@ public class OrderService {
         order.setOrderProducts(ops);
         order.setChannel(request.channel());
         order.setPaymentMethod(request.paymentMethod());
+        order.setPaymentStatus(PAYMENT_STATUS.get(request.paymentMethod()));
         order.setStatus(OrderStatus.PLACED);
         order.setTable(resolveTable(request.channel(), deviceIdentifier));
 
@@ -184,6 +190,7 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.PAID);
+        order.setPaymentStatus(null);
         OrderEntity savedOrder = orderRepository.save(order);
         return toResponse(savedOrder);
     }
@@ -257,7 +264,8 @@ public class OrderService {
                 order.getChefNote(),
                 order.getCreatedAt(),
                 isDelayed,
-                items);
+                items,
+                order.getPaymentStatus());
     }
 
     private boolean isOrderDelayed(OrderEntity order) {
@@ -321,6 +329,7 @@ public class OrderService {
                 savedOrder.getStatus(),
                 savedOrder.getChannel(),
                 savedOrder.getPaymentMethod(),
-                savedOrder.getTable() == null ? null : savedOrder.getTable().getTableNumber());
+                savedOrder.getTable() == null ? null : savedOrder.getTable().getTableNumber(),
+                savedOrder.getPaymentStatus());
     }
 }

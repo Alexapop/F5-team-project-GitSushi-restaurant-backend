@@ -1,6 +1,7 @@
 package dev.team1.orders;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,6 +30,7 @@ import org.springframework.web.server.ResponseStatusException;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
+import dev.team1.enums.PaymentStatus;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
@@ -156,10 +158,18 @@ class OrderServiceTest {
         assertEquals(null, captor.getValue().getTable());
     }
 
-    @Test
-    void markAsPaidUpdatesAndSavesPlacedOrder() {
+    @ParameterizedTest
+    @CsvSource({
+            "CASH_ONSITE, PENDING_CASH",
+            "CARD_ONSITE, PENDING_CARD_TERMINAL"
+    })
+    void markAsPaidClearsPendingPaymentStatus(
+            PaymentMethod paymentMethod, PaymentStatus initialPaymentStatus) {
         OrderEntity order = new OrderEntity();
         order.setStatus(OrderStatus.PLACED);
+        order.setChannel(OrderChannel.ONSITE);
+        order.setPaymentMethod(paymentMethod);
+        order.setPaymentStatus(initialPaymentStatus);
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
         when(orderRepository.save(order)).thenReturn(order);
 
@@ -167,6 +177,9 @@ class OrderServiceTest {
 
         assertEquals(OrderStatus.PAID, order.getStatus());
         assertEquals(OrderStatus.PAID, response.status());
+        assertNull(order.getPaymentStatus());
+        assertNull(response.paymentStatus());
+        assertEquals(paymentMethod, order.getPaymentMethod());
         verify(orderRepository).save(order);
     }
 
@@ -182,6 +195,63 @@ class OrderServiceTest {
         assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
         assertEquals(OrderStatus.DELIVERED, order.getStatus());
         verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "CASH_ONSITE, PENDING_CASH",
+            "CARD_ONSITE, PENDING_CARD_TERMINAL"
+    })
+    void createOnsiteOrderSavesAndReturnsPendingPaymentStatus(
+            PaymentMethod paymentMethod, PaymentStatus expectedPaymentStatus) {
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product(null)));
+        when(tableRepository.findByDeviceIdentifier("tablet-12"))
+                .thenReturn(Optional.of(table(12)));
+        when(orderRepository.save(any(OrderEntity.class)))
+                .thenAnswer(call -> call.getArgument(0));
+
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONSITE, paymentMethod);
+
+        OrderDTOResponse response = service.createOrder(request, "tablet-12");
+
+        ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(captor.capture());
+        OrderEntity savedOrder = captor.getValue();
+
+        assertEquals(paymentMethod, savedOrder.getPaymentMethod());
+        assertEquals(expectedPaymentStatus, savedOrder.getPaymentStatus());
+        assertEquals(OrderStatus.PLACED, savedOrder.getStatus());
+        assertEquals(expectedPaymentStatus, response.paymentStatus());
+        assertEquals(OrderStatus.PLACED, response.status());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "CASH_ONSITE, PENDING_CASH",
+            "CARD_ONSITE, PENDING_CARD_TERMINAL"
+    })
+    void getActiveKitchenOrdersReturnsPendingPaymentStatus(
+            PaymentMethod paymentMethod, PaymentStatus expectedPaymentStatus) {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PLACED);
+        order.setChannel(OrderChannel.ONSITE);
+        order.setPaymentMethod(paymentMethod);
+        order.setPaymentStatus(expectedPaymentStatus);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setOrderProducts(new ArrayList<>());
+
+        List<OrderStatus> activeStatuses = List.of(
+                OrderStatus.PLACED, OrderStatus.PROCESSING, OrderStatus.DELAYED);
+        when(orderRepository.findByStatusIn(activeStatuses)).thenReturn(List.of(order));
+
+        List<KitchenOrderDTOResponse> responses = service.getActiveKitchenOrders();
+
+        assertEquals(1, responses.size());
+        KitchenOrderDTOResponse response = responses.get(0);
+        assertEquals(OrderStatus.PLACED, response.status());
+        assertEquals(expectedPaymentStatus, response.paymentStatus());
     }
 
     private ProductEntity product(BigDecimal discount) {
