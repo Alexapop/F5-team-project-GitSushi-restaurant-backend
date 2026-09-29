@@ -1,14 +1,15 @@
 package dev.team1.mappers;
 
+import java.util.List;
+
+import dev.team1.roles.RoleEntity;
 import dev.team1.users.UserEntity;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
-import org.springframework.stereotype.Component;
 
-@Component
 public class UserMapper {
 
-    public UserEntity toEntity(UserRequestDTO dto) {
+    public static UserEntity toEntity(UserRequestDTO dto) {
         UserEntity entity = new UserEntity();
         entity.setFirstName(dto.getFirstName());
         entity.setLastName(dto.getLastName());
@@ -20,16 +21,26 @@ public class UserMapper {
         return entity;
     }
 
-    public UserResponseDTO toResponseDTO(UserEntity entity) {
-        UserResponseDTO dto = new UserResponseDTO();
-        dto.setId(entity.getId());
-        dto.setFirstName(entity.getFirstName());
-        dto.setLastName(entity.getLastName());
-        dto.setEmail(entity.getEmail());
-        dto.setAddress(entity.getAddress());
-        dto.setPostalCode(entity.getPostalCode());
-        dto.setCity(entity.getCity());
+    public static UserResponseDTO toDTO(UserEntity entity) {
+        UserResponseDTO dto = UserResponseDTO.builder()
+            .id(entity.getId())
+            .email(entity.getEmail())
+            .firstName(entity.getFirstName())
+            .lastName(entity.getLastName())
+            .postalCode(entity.getPostalCode())
+            .address(entity.getAddress())
+            .city(entity.getCity())
+            .roles(
+                entity.getRoles().stream()
+                    .map(RoleEntity::getName)
+                    .toList()
+            )
+            .build();
         return dto;
+    }
+
+    public static String rolesToString(List<String> rolesList) {
+        return String.join(", ", rolesList);
     }
 
 }

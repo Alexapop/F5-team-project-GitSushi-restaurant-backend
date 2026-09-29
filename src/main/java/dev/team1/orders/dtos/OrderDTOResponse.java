@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
+import dev.team1.enums.PaymentStatus;
 
 public record OrderDTOResponse(
         Long id,
@@ -18,7 +19,8 @@ public record OrderDTOResponse(
         OrderStatus status,
         OrderChannel channel,
         PaymentMethod paymentMethod,
-        Integer tableNumber
+        Integer tableNumber,
+        PaymentStatus paymentStatus
 
 ) {
 
