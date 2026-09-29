@@ -9,6 +9,8 @@ import dev.team1.users.dtos.UserResponseDTO;
 
 public class UserMapper {
 
+    private UserMapper() {}
+    
     public static UserEntity toEntity(UserRequestDTO dto) {
         UserEntity entity = new UserEntity();
         entity.setFirstName(dto.getFirstName());
