@@ -36,6 +36,7 @@ import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
+import dev.team1.orders.dtos.DeliveryMetricsDTOResponse;
 import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
 import dev.team1.tables.TableEntity;
@@ -530,6 +531,47 @@ class OrderServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         verifyNoInteractions(productRepository, tableRepository, orderRepository);
+    }
+
+        @Test
+    void getDeliveryMetricsReturnsCorrectCounts() {
+        when(orderRepository.findByStatus(OrderStatus.READY))
+                .thenReturn(List.of(new OrderEntity(), new OrderEntity()));
+        when(orderRepository.findByStatus(OrderStatus.ONTHEWAY))
+                .thenReturn(List.of(new OrderEntity()));
+
+        OrderEntity delivered1 = new OrderEntity();
+        delivered1.setCreatedAt(LocalDateTime.now().minusMinutes(30));
+        delivered1.setDeliveredAt(LocalDateTime.now().minusMinutes(10));
+
+        OrderEntity delivered2 = new OrderEntity();
+        delivered2.setCreatedAt(LocalDateTime.now().minusMinutes(50));
+        delivered2.setDeliveredAt(LocalDateTime.now().minusMinutes(30));
+
+        when(orderRepository.findByStatusAndDeliveredAtGreaterThanEqual(any(), any()))
+                .thenReturn(List.of(delivered1, delivered2));
+
+        DeliveryMetricsDTOResponse metrics = service.getDeliveryMetrics();
+
+        assertEquals(2, metrics.readyCount());
+        assertEquals(1, metrics.inTransitCount());
+        assertEquals(2, metrics.deliveredTodayCount());
+        assertEquals(20.0, metrics.averageDeliveryMinutes(), 0.5);
+    }
+
+    @Test
+    void getDeliveryMetricsReturnsZeroWhenNoOrders() {
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of());
+        when(orderRepository.findByStatus(OrderStatus.ONTHEWAY)).thenReturn(List.of());
+        when(orderRepository.findByStatusAndDeliveredAtGreaterThanEqual(any(), any()))
+                .thenReturn(List.of());
+
+        DeliveryMetricsDTOResponse metrics = service.getDeliveryMetrics();
+
+        assertEquals(0, metrics.readyCount());
+        assertEquals(0, metrics.inTransitCount());
+        assertEquals(0, metrics.deliveredTodayCount());
+        assertEquals(0.0, metrics.averageDeliveryMinutes());
     }
 
 }
