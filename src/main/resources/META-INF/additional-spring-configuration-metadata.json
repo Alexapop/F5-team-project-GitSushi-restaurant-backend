@@ -4,6 +4,21 @@
             "name": "api-endpoint",
             "type": "java.lang.String",
             "description": "A variable for providing a version of API with requests"
+        },
+        {
+            "name": "cookie-same-site",
+            "type": "java.lang.String",
+            "description": "A SameSite vaue for cookie setting. Lax, None or Strict. Lax to work with localhost. None for production only with HTTPS (SSL sertificate)"
+        },
+        {
+            "name": "frontend-domain",
+            "type": "java.lang.String",
+            "description": "A frontend domain URL for CORS security filter"
+        },
+        {
+            "name": "jwt-secret",
+            "type": "java.lang.String",
+            "description": "JWT secret for generating access and refresh auth tokens"
         }
     ]
 }

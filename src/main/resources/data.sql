@@ -1,3 +1,43 @@
+-- === ROLES ===
+INSERT INTO roles (id, name) VALUES (default, 'ROLE_CUSTOMER');
+INSERT INTO roles (id, name) VALUES (default, 'ROLE_ADMIN');
+INSERT INTO roles (id, name) VALUES (default, 'ROLE_COOK');
+INSERT INTO roles (id, name) VALUES (default, 'ROLE_DELIVERYMAN');
+
+-- === USERS ===
+INSERT INTO users (
+    id, first_name, last_name, 
+    email, password, 
+    address, postal_code, city, 
+    created_at
+) VALUES (
+    default, 'Siquis', 'Miquis',
+    'admin@gitsushi.com', 'admin123',
+    'España, Asturias', '58149', 'Oviedo',
+    NOW()
+);
+
+INSERT INTO users (
+    id, first_name, last_name, 
+    email, password, 
+    address, postal_code, city,
+    created_at
+) VALUES (
+    default, 'Caquis', 'Paquis',
+    'customer@gitsushi.com', 'user1234',
+    'España, Asturias', '58149', 'Oviedo',
+    NOW()
+);
+
+-- === USERS_ROLES === 
+
+INSERT INTO users_roles (user_id, role_id) VALUES (
+    (SELECT id FROM users ORDER BY created_at LIMIT 1), 2
+);
+INSERT INTO users_roles (user_id, role_id) VALUES (
+    (SELECT id FROM users ORDER BY created_at LIMIT 1 OFFSET 1), 1
+);
+
 -- === LA CARTA ===
 
 -- ENTRANTES
