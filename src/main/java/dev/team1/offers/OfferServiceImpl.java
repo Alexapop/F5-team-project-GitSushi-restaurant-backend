@@ -11,6 +11,7 @@ import dev.team1.offers.dtos.OfferDTOResponse;
 import dev.team1.users.UserEntity;
 import dev.team1.users.UserRepository;
 import lombok.RequiredArgsConstructor;
+import dev.team1.offers.exceptions.OfferException;
 
 @Service 
 @RequiredArgsConstructor 
@@ -21,8 +22,10 @@ public class OfferServiceImpl implements IOfferService {
 
     @Override
     public List<OfferDTOResponse> getAll(String email) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getAll'");
+        List<OfferEntity> offerEntities = getOffersOfCurrentUser(email);
+        return offerEntities.stream()
+            .map(OfferMapper::toDTO)
+            .toList();
     }
 
     @Override
@@ -39,9 +42,9 @@ public class OfferServiceImpl implements IOfferService {
 
     private List<OfferEntity> getOffersOfCurrentUser(String email) {
         UserEntity user = userRepository.findByEmail(email)
-            .orElseThrow(() -> OfferException("User is not found"));
+            .orElseThrow(() -> new OfferException("User is not found"));
 
-        
+        return user.getOffers();
     }
 
     
