@@ -3,7 +3,6 @@ package dev.team1.security;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.server.Cookie.SameSite;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -59,6 +58,9 @@ public class SecurityConfiguration {
         );
 
         return http
+            .cors(cors -> cors
+                .configurationSource(corsConfigurationSource()))
+
             .httpBasic(AbstractHttpConfigurer::disable)
             
             .csrf(csrf -> csrf
@@ -66,10 +68,8 @@ public class SecurityConfiguration {
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
             .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
             
-            .cors(cors -> cors
-                .configurationSource(corsConfigurationSource()))
-            
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.POST, pre + "/users").permitAll()
                 .requestMatchers(pre + "/users").hasRole("ADMIN")
                 .requestMatchers(pre + "/products/administration").hasRole("ADMIN")
                 .requestMatchers(pre + "/kitchen").hasAnyAuthority("ROLE_ADMIN", "ROLE_COOK")
@@ -79,8 +79,6 @@ public class SecurityConfiguration {
                 .requestMatchers(pre + "/auth/login").permitAll()
                 .requestMatchers(pre + "/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.GET, pre + "/products").permitAll()
-                .requestMatchers(HttpMethod.POST, pre + "/users").permitAll()
-                // .requestMatchers(HttpMethod.GET, pre + "/auth/me").permitAll()
                 .anyRequest().authenticated())
             
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

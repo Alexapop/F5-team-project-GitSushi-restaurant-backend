@@ -1,6 +1,9 @@
 package dev.team1.users;
 
 import dev.team1.mappers.UserMapper;
+import dev.team1.offers.OfferRepository;
+import dev.team1.products.ProductEntity;
+import dev.team1.products.ProductRepository;
 import dev.team1.roles.RoleEntity;
 import dev.team1.roles.RoleRepository;
 import dev.team1.security.PasswordEncoderPort;
@@ -15,6 +18,8 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.ArgumentMatchers;
+
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -25,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,6 +43,12 @@ class UserServiceTest {
 
     @Mock
     private RoleRepository roleRepository;
+
+    @Mock
+    private ProductRepository productRepository;
+
+    @Mock
+    private OfferRepository offerRepository;
 
 
     @Mock
@@ -95,12 +107,18 @@ class UserServiceTest {
             .email("ahmet@example.com")
             .build();
 
+        ProductEntity mockProduct = ProductEntity.builder()
+            .name("Sushi Git")
+            .price(BigDecimal.valueOf(7))
+            .build();
+
         when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
         userMapperMock.when(() -> UserMapper.toEntity(validRequest)).thenReturn(mappedEntity);
         when(passwordEncoderPort.encode("secret123")).thenReturn("encoded-secret123");
         when(userRepository.save(any(UserEntity.class))).thenReturn(savedEntity);
         userMapperMock.when(() -> UserMapper.toDTO(savedEntity)).thenReturn(expectedResponse);
         when(roleRepository.findByName("ROLE_CUSTOMER")).thenReturn(Optional.of(roleCustomer));
+        when(productRepository.findByName(ArgumentMatchers.anyString())).thenReturn(Optional.of(mockProduct));
 
         UserResponseDTO result = userService.registerUser(validRequest);
 

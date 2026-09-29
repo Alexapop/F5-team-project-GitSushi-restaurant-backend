@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import dev.team1.invoices.exceptions.InvoiceException;
 import dev.team1.invoices.exceptions.InvoiceExceptionNotFound;
+import dev.team1.offers.exceptions.OfferException;
 import dev.team1.products.exceptions.ProductException;
 import dev.team1.products.exceptions.ProductExceptionConflict;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
@@ -45,6 +46,11 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseEntity<String> handleProductAny(ProductException exception) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(exception.getMessage());
+    }
+
+    @ExceptionHandler(OfferException.class)
+    public ResponseEntity<String> handleOfferException(OfferException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Unable to get offers: " + exception.getMessage());
     }
 
     @ExceptionHandler(InvoiceException.class)
