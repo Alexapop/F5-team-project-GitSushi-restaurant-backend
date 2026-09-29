@@ -73,6 +73,7 @@ public class SecurityConfiguration {
                 .requestMatchers(pre + "/users").hasRole("ADMIN")
                 .requestMatchers(pre + "/products/administration").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, pre + "/orders").permitAll()
+                .requestMatchers(HttpMethod.POST, pre + "payments/checkout").permitAll()
                 .requestMatchers(HttpMethod.PATCH, pre + "/orders/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_COOK", "ROLE_DELIVERYMAN")
                 .requestMatchers(pre + "/auth/login").permitAll()
                 .requestMatchers(pre + "/auth/refresh").permitAll()
