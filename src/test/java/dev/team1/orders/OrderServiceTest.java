@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +43,8 @@ import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
 import dev.team1.tables.TableEntity;
 import dev.team1.tables.TableRepository;
+import dev.team1.users.UserEntity;
+import dev.team1.users.UserRepository;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
@@ -54,6 +57,9 @@ class OrderServiceTest {
 
     @Mock
     private TableRepository tableRepository;
+
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private OrderService service;
@@ -68,7 +74,7 @@ class OrderServiceTest {
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
                 "No onions", OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE);
 
-        OrderDTOResponse response = service.createOrder(request, "tablet-12");
+        OrderDTOResponse response = service.createOrder(request, "tablet-12", null);
 
         assertEquals(new BigDecimal("20.00"), response.subtotal());
         assertEquals(new BigDecimal("0.00"), response.discountAmount());
@@ -97,7 +103,7 @@ class OrderServiceTest {
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
                 null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
 
-        OrderDTOResponse response = service.createOrder(request, "tablet-12");
+        OrderDTOResponse response = service.createOrder(request, "tablet-12", null);
 
         assertEquals(new BigDecimal("20.00"), response.subtotal());
         assertEquals(new BigDecimal("2.00"), response.discountAmount());
@@ -113,7 +119,7 @@ class OrderServiceTest {
         OrderDTORequest request = onsiteRequest();
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> service.createOrder(request, null));
+                () -> service.createOrder(request, null, null));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         verify(orderRepository, never()).save(any(OrderEntity.class));
@@ -124,7 +130,7 @@ class OrderServiceTest {
         OrderDTORequest request = onsiteRequest();
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> service.createOrder(request, "   "));
+                () -> service.createOrder(request, "   ", null));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         verify(orderRepository, never()).save(any(OrderEntity.class));
@@ -136,7 +142,7 @@ class OrderServiceTest {
                 .thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> service.createOrder(onsiteRequest(), "unknown-device"));
+                () -> service.createOrder(onsiteRequest(), "unknown-device", null));
 
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
         verify(orderRepository, never()).save(any(OrderEntity.class));
@@ -151,13 +157,49 @@ class OrderServiceTest {
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
                 null, OrderChannel.ONLINE, PaymentMethod.CASH_ON_DELIVERY);
 
-        OrderDTOResponse response = service.createOrder(request, null);
+        OrderDTOResponse response = service.createOrder(request, null, null);
 
         assertEquals(OrderChannel.ONLINE, response.channel());
         assertEquals(null, response.tableNumber());
         ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
         verify(orderRepository).save(captor.capture());
         assertEquals(null, captor.getValue().getTable());
+        assertNull(captor.getValue().getUser());
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void createOrderAssociatesAuthenticatedUser() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = new UserEntity();
+        user.setId(userId);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product(null)));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD);
+
+        service.createOrder(request, null, userId);
+
+        ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(captor.capture());
+        assertSame(user, captor.getValue().getUser());
+    }
+
+    @Test
+    void createOrderRejectsMissingAuthenticatedUser() {
+        UUID userId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.createOrder(request, null, userId));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+        verifyNoInteractions(orderRepository, productRepository, tableRepository);
     }
 
     @ParameterizedTest
@@ -216,7 +258,7 @@ class OrderServiceTest {
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
                 null, OrderChannel.ONSITE, paymentMethod);
 
-        OrderDTOResponse response = service.createOrder(request, "tablet-12");
+        OrderDTOResponse response = service.createOrder(request, "tablet-12", null);
 
         ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
         verify(orderRepository).save(captor.capture());
@@ -528,7 +570,7 @@ class OrderServiceTest {
                 null, channel, paymentMethod);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> service.createOrder(request, "tablet-12"));
+                () -> service.createOrder(request, "tablet-12", null));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         verifyNoInteractions(productRepository, tableRepository, orderRepository);

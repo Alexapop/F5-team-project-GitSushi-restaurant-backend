@@ -23,10 +23,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import lombok.RequiredArgsConstructor;
 
-@Configuration 
-@EnableWebSecurity 
-@RequiredArgsConstructor 
-@EnableMethodSecurity 
+@Configuration
+@EnableWebSecurity
+@RequiredArgsConstructor
+@EnableMethodSecurity
 public class SecurityConfiguration {
 
     private final JwtFilter jwtFilter;
@@ -40,25 +40,25 @@ public class SecurityConfiguration {
     @Value("${cookie-same-site}")
     private String sameSite;
 
-    @Bean 
+    @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         // Configuration without auth and security
         //
         // http
-        //     .csrf(csrf -> csrf.disable())
-        //     .authorizeHttpRequests(auth -> auth
-        //         .anyRequest().permitAll()
-        //     );
+        // .csrf(csrf -> csrf.disable())
+        // .authorizeHttpRequests(auth -> auth
+        // .anyRequest().permitAll()
+        // );
         // return http.build();
 
         CookieCsrfTokenRepository csrfRepo = new CookieCsrfTokenRepository();
         csrfRepo.setCookieCustomizer(cookie -> cookie
-            .httpOnly(false)
-            .secure(true)
-            .sameSite(sameSite)
-        );
+                .httpOnly(false)
+                .secure(true)
+                .sameSite(sameSite));
 
         return http
+<<<<<<< HEAD
             .httpBasic(AbstractHttpConfigurer::disable)
             
             .csrf(csrf -> csrf
@@ -89,7 +89,39 @@ public class SecurityConfiguration {
         
             .build();
     }
+=======
+                .httpBasic(AbstractHttpConfigurer::disable)
+>>>>>>> feat/GS-341-implement-pay-by-card
 
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(csrfRepo)
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+                .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
+
+                .cors(cors -> cors
+                        .configurationSource(corsConfigurationSource()))
+
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(pre + "/users").hasRole("ADMIN")
+                        .requestMatchers(pre + "/products/administration").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, pre + "/orders").permitAll()
+                        .requestMatchers(HttpMethod.POST, pre + "/payments/checkout").permitAll()
+                        .requestMatchers(HttpMethod.POST, pre + "/payments/confirm").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, pre + "/orders/**")
+                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_COOK", "ROLE_DELIVERYMAN")
+                        .requestMatchers(pre + "/auth/login").permitAll()
+                        .requestMatchers(pre + "/auth/refresh").permitAll()
+                        .requestMatchers(HttpMethod.GET, pre + "/products").permitAll()
+                        .requestMatchers(HttpMethod.POST, pre + "/users").permitAll()
+                        // .requestMatchers(HttpMethod.GET, pre + "/auth/me").permitAll()
+                        .anyRequest().authenticated())
+
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+
+                .build();
+    }
 
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
@@ -103,5 +135,4 @@ public class SecurityConfiguration {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
-
-}
+   }
