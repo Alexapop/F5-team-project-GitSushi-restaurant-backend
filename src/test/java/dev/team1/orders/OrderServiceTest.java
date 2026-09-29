@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -574,4 +575,66 @@ class OrderServiceTest {
         assertEquals(0.0, metrics.averageDeliveryMinutes());
     }
 
+        @Test
+    void getDeliveryMetricsCalculatesAverageForSingleDelivery() {
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of());
+        when(orderRepository.findByStatus(OrderStatus.ONTHEWAY)).thenReturn(List.of());
+
+        OrderEntity delivered = new OrderEntity();
+        delivered.setCreatedAt(LocalDateTime.now().minusMinutes(25));
+        delivered.setDeliveredAt(LocalDateTime.now());
+
+        when(orderRepository.findByStatusAndDeliveredAtGreaterThanEqual(any(), any()))
+                .thenReturn(List.of(delivered));
+
+        DeliveryMetricsDTOResponse metrics = service.getDeliveryMetrics();
+
+        assertEquals(1, metrics.deliveredTodayCount());
+        assertEquals(25.0, metrics.averageDeliveryMinutes(), 0.5);
+    }
+
+    @Test
+    void getDeliveryMetricsCountsOnlyReadyOrders() {
+        when(orderRepository.findByStatus(OrderStatus.READY))
+                .thenReturn(List.of(new OrderEntity(), new OrderEntity(), new OrderEntity()));
+        when(orderRepository.findByStatus(OrderStatus.ONTHEWAY)).thenReturn(List.of());
+        when(orderRepository.findByStatusAndDeliveredAtGreaterThanEqual(any(), any()))
+                .thenReturn(List.of());
+
+        DeliveryMetricsDTOResponse metrics = service.getDeliveryMetrics();
+
+        assertEquals(3, metrics.readyCount());
+        assertEquals(0, metrics.inTransitCount());
+        assertEquals(0, metrics.deliveredTodayCount());
+    }
+
+    @Test
+    void getDeliveryMetricsCountsOnlyInTransitOrders() {
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of());
+        when(orderRepository.findByStatus(OrderStatus.ONTHEWAY))
+                .thenReturn(List.of(new OrderEntity(), new OrderEntity()));
+        when(orderRepository.findByStatusAndDeliveredAtGreaterThanEqual(any(), any()))
+                .thenReturn(List.of());
+
+        DeliveryMetricsDTOResponse metrics = service.getDeliveryMetrics();
+
+        assertEquals(0, metrics.readyCount());
+        assertEquals(2, metrics.inTransitCount());
+        assertEquals(0, metrics.deliveredTodayCount());
+    }
+
+    @Test
+    void getDeliveryMetricsQueriesFromStartOfToday() {
+        when(orderRepository.findByStatus(any())).thenReturn(List.of());
+        when(orderRepository.findByStatusAndDeliveredAtGreaterThanEqual(any(), any()))
+                .thenReturn(List.of());
+
+        service.getDeliveryMetrics();
+
+        ArgumentCaptor<LocalDateTime> sinceCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(orderRepository).findByStatusAndDeliveredAtGreaterThanEqual(
+                org.mockito.ArgumentMatchers.eq(OrderStatus.DELIVERED), sinceCaptor.capture());
+
+        assertEquals(LocalDate.now().atStartOfDay(), sinceCaptor.getValue());
+    }
 }
