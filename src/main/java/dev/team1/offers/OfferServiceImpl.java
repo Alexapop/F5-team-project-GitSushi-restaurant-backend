@@ -44,8 +44,18 @@ public class OfferServiceImpl implements IOfferService {
 
     @Override
     public OfferDTOResponse consume(UUID coupon, String email) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'consume'");
+        List<OfferEntity> offerEntities = getOffersOfCurrentUser(email);
+
+        OfferEntity offer = offerRepository.findByCoupon(coupon)
+            .orElseThrow(() -> new OfferException("Offer not found with coupon " + coupon));
+
+        if (!offerEntities.stream().anyMatch(o -> o.getId() == offer.getId())) {
+            throw new OfferException("Offer is not belong to actual user");
+        }
+        offer.setUsed(true);
+        offerRepository.save(offer);
+
+        return OfferMapper.toDTO(offer);
     }
 
     private List<OfferEntity> getOffersOfCurrentUser(String email) {
@@ -54,7 +64,5 @@ public class OfferServiceImpl implements IOfferService {
 
         return user.getOffers();
     }
-
     
-
 }
