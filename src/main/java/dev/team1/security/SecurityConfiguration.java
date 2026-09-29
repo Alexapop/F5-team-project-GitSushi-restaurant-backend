@@ -58,15 +58,15 @@ public class SecurityConfiguration {
         );
 
         return http
+            .cors(cors -> cors
+                .configurationSource(corsConfigurationSource()))
+
             .httpBasic(AbstractHttpConfigurer::disable)
             
             .csrf(csrf -> csrf
                 .csrfTokenRepository(csrfRepo)
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
             .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
-            
-            .cors(cors -> cors
-                .configurationSource(corsConfigurationSource()))
             
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(pre + "/users").hasRole("ADMIN")
