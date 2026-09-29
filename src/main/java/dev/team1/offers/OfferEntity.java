@@ -1,6 +1,7 @@
 package dev.team1.offers;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 import dev.team1.products.ProductEntity;
 import dev.team1.users.UserEntity;
@@ -12,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Data;
@@ -39,6 +41,10 @@ public class OfferEntity {
     @Column(name = "final_price")
     private BigDecimal finalPrice;
 
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "coupon", unique = true, nullable = false)
+    private UUID coupon;
+
     private boolean used = false;
 
     @ManyToOne 
@@ -48,5 +54,5 @@ public class OfferEntity {
     @OneToOne
     @JoinColumn(name = "product_id")
     private ProductEntity product;
-    
+
 }
