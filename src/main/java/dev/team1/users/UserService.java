@@ -66,8 +66,6 @@ public class UserService {
 
         UserEntity savedUser = userRepository.save(newUser);
         
-        System.out.println("### ## USER OFFERS: \n" + savedUser.getOffers().get(0));
-        
         return UserMapper.toDTO(savedUser);
     }
 
