@@ -31,8 +31,15 @@ public class OfferServiceImpl implements IOfferService {
 
     @Override
     public OfferDTOResponse getById(Long id, String email) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getById'");
+        List<OfferEntity> offerEntities = getOffersOfCurrentUser(email);
+
+        OfferEntity offer = offerRepository.findById(id)
+            .orElseThrow(() -> new OfferException("Offer not found with id " + id));
+
+        if (!offerEntities.stream().anyMatch(o -> o.getId() == id)) {
+            throw new OfferException("Offer is not belong to actual user");
+        }
+        return OfferMapper.toDTO(offer);
     }
 
     @Override
@@ -43,7 +50,7 @@ public class OfferServiceImpl implements IOfferService {
 
     private List<OfferEntity> getOffersOfCurrentUser(String email) {
         UserEntity user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new OfferException("User is not found"));
+            .orElseThrow(() -> new OfferException("User not found"));
 
         return user.getOffers();
     }
