@@ -41,7 +41,6 @@ public class OfferEntity {
     @Column(name = "final_price")
     private BigDecimal finalPrice;
 
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "coupon", unique = true, nullable = false)
     private UUID coupon;
 
@@ -54,5 +53,10 @@ public class OfferEntity {
     @OneToOne
     @JoinColumn(name = "product_id")
     private ProductEntity product;
+
+    @PrePersist
+    protected void onCreate() {
+        this.coupon = UUID.randomUUID();
+    }
 
 }
