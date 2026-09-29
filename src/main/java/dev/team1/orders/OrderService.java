@@ -2,6 +2,7 @@ package dev.team1.orders;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse;
 import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
+import dev.team1.orders.dtos.DeliveryMetricsDTOResponse;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.products.ProductEntity;
@@ -247,6 +249,24 @@ public class OrderService {
         long readyCount = orderRepository.findByStatus(OrderStatus.READY).size();
 
         return new KitchenMetricsDTOResponse(total, averageMinutes, processingCount, delayedCount, readyCount);
+    }
+
+        @Transactional(readOnly = true)
+    public DeliveryMetricsDTOResponse getDeliveryMetrics() {
+        long readyCount = orderRepository.findByStatus(OrderStatus.READY).size();
+        long inTransitCount = orderRepository.findByStatus(OrderStatus.ONTHEWAY).size();
+
+        List<OrderEntity> deliveredToday = orderRepository
+                .findByStatusAndDeliveredAtGreaterThanEqual(
+                        OrderStatus.DELIVERED, LocalDate.now().atStartOfDay());
+
+        double averageDeliveryMinutes = deliveredToday.stream()
+                .mapToLong(order -> ChronoUnit.MINUTES.between(order.getCreatedAt(), order.getDeliveredAt()))
+                .average()
+                .orElse(0.0);
+
+        return new DeliveryMetricsDTOResponse(
+                readyCount, inTransitCount, deliveredToday.size(), averageDeliveryMinutes);
     }
 
         private KitchenOrderDTOResponse toKitchenResponse(OrderEntity order) {
