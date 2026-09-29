@@ -3,6 +3,7 @@ package dev.team1.security;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.server.Cookie.SameSite;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -36,6 +37,9 @@ public class SecurityConfiguration {
     @Value("${frontend-domain}")
     private String frontendDomain;
 
+    @Value("${cookie-same-site}")
+    private String sameSite;
+
     @Bean 
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         // Configuration without auth and security
@@ -47,12 +51,18 @@ public class SecurityConfiguration {
         //     );
         // return http.build();
 
+        CookieCsrfTokenRepository csrfRepo = new CookieCsrfTokenRepository();
+        csrfRepo.setCookieCustomizer(cookie -> cookie
+            .httpOnly(false)
+            .secure(true)
+            .sameSite(sameSite)
+        );
 
         return http
             .httpBasic(AbstractHttpConfigurer::disable)
             
             .csrf(csrf -> csrf
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRepository(csrfRepo)
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
             .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
             
@@ -68,6 +78,7 @@ public class SecurityConfiguration {
                 .requestMatchers(pre + "/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.GET, pre + "/products").permitAll()
                 .requestMatchers(HttpMethod.POST, pre + "/users").permitAll()
+                // .requestMatchers(HttpMethod.GET, pre + "/auth/me").permitAll()
                 .anyRequest().authenticated())
             
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -83,7 +94,7 @@ public class SecurityConfiguration {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(frontendDomain)); // frontend domain
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("X-XSRF-TOKEN", "*"));
         config.setAllowCredentials(true); 
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

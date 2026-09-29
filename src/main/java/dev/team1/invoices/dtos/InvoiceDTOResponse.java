@@ -1,5 +1,18 @@
 package dev.team1.invoices.dtos;
 
-public record InvoiceDTOResponse() {
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
+
+import lombok.Builder;
+
+@Builder 
+public record InvoiceDTOResponse(
+  Long id,
+  Long orderId,
+  UUID invoiceNumber,
+  BigDecimal amount,
+  Instant paidAt
+) {
 
 }
