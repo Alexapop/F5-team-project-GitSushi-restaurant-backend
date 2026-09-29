@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 import dev.team1.contracts.IOfferService;
+import dev.team1.mappers.OfferMapper;
 import dev.team1.offers.dtos.OfferDTOResponse;
 import dev.team1.users.UserEntity;
 import dev.team1.users.UserRepository;
