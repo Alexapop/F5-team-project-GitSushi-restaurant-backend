@@ -8,6 +8,9 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+
+import dev.team1.invoices.exceptions.InvoiceException;
+import dev.team1.invoices.exceptions.InvoiceExceptionNotFound;
 import dev.team1.products.exceptions.ProductException;
 import dev.team1.products.exceptions.ProductExceptionConflict;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
@@ -20,6 +23,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(exception.getMessage());
     }
 
+    @ExceptionHandler(InvoiceExceptionNotFound.class)
+    public ResponseEntity<String> handleInvoiceNotFound(InvoiceExceptionNotFound exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(exception.getMessage());
+    }
+
     @ExceptionHandler(ProductExceptionConflict.class)
     public ResponseEntity<String> handleProductConflict(ProductExceptionConflict exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(exception.getMessage());
@@ -27,6 +35,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ProductException.class)
     public ResponseEntity<String> handleProductAny(ProductException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(exception.getMessage());
+    }
+
+    @ExceptionHandler(InvoiceException.class)
+    public ResponseEntity<String> handleInvoiceAny(InvoiceException exception) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(exception.getMessage());
     }
 
