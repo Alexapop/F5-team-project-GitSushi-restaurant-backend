@@ -29,6 +29,30 @@ INSERT INTO users (
     NOW()
 );
 
+INSERT INTO users (
+    id, first_name, last_name, 
+    email, password, 
+    address, postal_code, city, 
+    created_at
+) VALUES (
+    default, 'Pipa', 'Shlipa',
+    'cook@gitsushi.com', 'cook1234',
+    'España, Asturias', '58149', 'Gijon',
+    NOW()
+);
+
+INSERT INTO users (
+    id, first_name, last_name, 
+    email, password, 
+    address, postal_code, city,
+    created_at
+) VALUES (
+    default, 'Pupis', 'Mupis',
+    'delivery@gitsushi.com', 'delivery123',
+    'España, Asturias', '58149', 'Aviles',
+    NOW()
+);
+
 -- === USERS_ROLES === 
 
 INSERT INTO users_roles (user_id, role_id) VALUES (
@@ -36,6 +60,12 @@ INSERT INTO users_roles (user_id, role_id) VALUES (
 );
 INSERT INTO users_roles (user_id, role_id) VALUES (
     (SELECT id FROM users ORDER BY created_at LIMIT 1 OFFSET 1), 1
+);
+INSERT INTO users_roles (user_id, role_id) VALUES (
+    (SELECT id FROM users ORDER BY created_at LIMIT 1 OFFSET 2), 3
+);
+INSERT INTO users_roles (user_id, role_id) VALUES (
+    (SELECT id FROM users ORDER BY created_at LIMIT 1 OFFSET 3), 4
 );
 
 -- === LA CARTA ===
