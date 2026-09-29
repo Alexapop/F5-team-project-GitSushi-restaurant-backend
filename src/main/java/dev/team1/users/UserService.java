@@ -1,17 +1,27 @@
 package dev.team1.users;
 
 import dev.team1.mappers.UserMapper;
+import dev.team1.offers.OfferEntity;
+import dev.team1.products.ProductEntity;
+import dev.team1.products.ProductRepository;
+import dev.team1.products.exceptions.ProductExceptionNotFound;
 import dev.team1.roles.RoleEntity;
 import dev.team1.roles.RoleRepository;
 import dev.team1.security.PasswordEncoderPort;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
+import jakarta.transaction.Transactional;
+
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.regex.Pattern;
 
 @Service
 public class UserService {
+
+    private final ProductRepository productRepository;
 
     private static final Pattern EMAIL_PATTERN =
         Pattern.compile("^[\\w.+-]+@[\\w-]+\\.[a-zA-Z]{2,}$");
@@ -20,12 +30,14 @@ public class UserService {
     private final PasswordEncoderPort passwordEncoderPort;
     private final RoleRepository roleRepository;
 
-    public UserService(UserRepository userRepository, PasswordEncoderPort passwordEncoderPort, RoleRepository roleRepository) {
+    public UserService(UserRepository userRepository, PasswordEncoderPort passwordEncoderPort, RoleRepository roleRepository, ProductRepository productRepository) {
         this.userRepository = userRepository;
         this.passwordEncoderPort = passwordEncoderPort;
         this.roleRepository = roleRepository;
+        this.productRepository = productRepository;
     }
 
+    @Transactional 
     public UserResponseDTO registerUser(UserRequestDTO requestDTO) {
         validateRequiredFields(requestDTO);
         validateEmailFormat(requestDTO.getEmail());
@@ -43,7 +55,19 @@ public class UserService {
             });
         newUser.getRoles().add(roleCustomer);
 
+
+        // Autpmatically dding offers to a new user
+        ProductEntity product1 = getProductForOffer("Salmon.js");
+        ProductEntity product2 = getProductForOffer("Shrimp.java");
+        
+        OfferEntity offer1 = createOffer(product1, newUser, BigDecimal.valueOf(50));
+        OfferEntity offer2 = createOffer(product2, newUser, BigDecimal.valueOf(50));
+        newUser.setOffers(List.of(offer1, offer2));
+
         UserEntity savedUser = userRepository.save(newUser);
+        
+        System.out.println("### ## USER OFFERS: \n" + savedUser.getOffers().get(0));
+        
         return UserMapper.toDTO(savedUser);
     }
 
@@ -85,6 +109,20 @@ public class UserService {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private ProductEntity getProductForOffer(String name) {
+        return productRepository.findByName(name)
+            .orElseThrow(() -> new ProductExceptionNotFound("Product " + name + " not found"));
+    }
+
+    private OfferEntity createOffer(ProductEntity product, UserEntity user, BigDecimal discountRate) {
+        return OfferEntity.builder()
+            .product(product)
+            .originalPrice(product.getPrice())
+            .discountRate(discountRate)
+            .user(user)
+            .build();
     }
 
 }

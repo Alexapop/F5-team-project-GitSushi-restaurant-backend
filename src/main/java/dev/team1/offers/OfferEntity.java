@@ -16,9 +16,12 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 
 @Entity 
 @Table(name = "offers")
@@ -46,17 +49,40 @@ public class OfferEntity {
 
     private boolean used = false;
 
+
     @ManyToOne 
     @JoinColumn(name = "user_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private UserEntity user;
 
     @OneToOne
     @JoinColumn(name = "product_id")
     private ProductEntity product;
 
+    @Builder
+    public OfferEntity(BigDecimal originalPrice, BigDecimal discountRate, BigDecimal finalPrice, UserEntity user,
+            ProductEntity product) {
+        this.originalPrice = originalPrice;
+        this.discountRate = discountRate;
+        this.finalPrice = finalPrice;
+        this.user = user;
+        this.product = product;
+    }
+
     @PrePersist
     protected void onCreate() {
         this.coupon = UUID.randomUUID();
+
+        if (finalPrice == null && originalPrice != null && discountRate != null) {
+            this.finalPrice = originalPrice.subtract(
+                originalPrice.multiply(
+                    discountRate.divide(
+                        BigDecimal.valueOf(100)
+                    )
+                )
+            );
+        }
     }
 
 }
