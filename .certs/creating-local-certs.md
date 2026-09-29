@@ -22,7 +22,13 @@ brew install mkcert
 mkcert -install
 ```
 
-## 3. Create a localhost key for Backend:
+## 3. Create a localhost key for **Frontend**:
+```bash 
+mkcert -cert-file ./certs/localhost+2.pem -key-file ./certs/localhost+2.pem localhost 127.0.0.1
+```
+
+
+## 4. Create a localhost key for **Backend**:
 
 ```bash
 mkcert -pkcs12 -p12-file ./.certs/localhost+1.p12 localhost 127.0.0.1;
