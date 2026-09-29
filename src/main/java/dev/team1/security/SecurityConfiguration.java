@@ -69,6 +69,7 @@ public class SecurityConfiguration {
             .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
             
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.POST, pre + "/users").permitAll()
                 .requestMatchers(pre + "/users").hasRole("ADMIN")
                 .requestMatchers(pre + "/products/administration").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, pre + "/orders").permitAll()
@@ -76,8 +77,6 @@ public class SecurityConfiguration {
                 .requestMatchers(pre + "/auth/login").permitAll()
                 .requestMatchers(pre + "/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.GET, pre + "/products").permitAll()
-                .requestMatchers(HttpMethod.POST, pre + "/users").permitAll()
-                // .requestMatchers(HttpMethod.GET, pre + "/auth/me").permitAll()
                 .anyRequest().authenticated())
             
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
