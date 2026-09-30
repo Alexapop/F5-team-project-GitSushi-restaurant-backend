@@ -49,7 +49,7 @@ class DeliveryControllerTest {
     }
 
     @Test
-    @WithMockUser("DELIVERYMAN")
+    @WithMockUser(roles = "DELIVERYMAN")
     void getMetricsReturnsDeliveryMetrics() throws Exception {
         DeliveryMetricsDTOResponse metrics = new DeliveryMetricsDTOResponse(4, 2, 7, 18.5);
         when(service.getDeliveryMetrics()).thenReturn(metrics);
@@ -64,7 +64,7 @@ class DeliveryControllerTest {
     }
 
     @Test
-    @WithMockUser("DELIVERYMAN")
+    @WithMockUser(roles = "DELIVERYMAN")
     void getMetricsReturnsZerosWhenNoOrders() throws Exception {
         DeliveryMetricsDTOResponse metrics = new DeliveryMetricsDTOResponse(0, 0, 0, 0.0);
         when(service.getDeliveryMetrics()).thenReturn(metrics);

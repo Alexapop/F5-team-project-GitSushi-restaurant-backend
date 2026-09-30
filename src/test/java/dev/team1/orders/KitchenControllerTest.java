@@ -65,7 +65,7 @@ class KitchenControllerTest {
 
 
     @Test
-    @WithMockUser("COOK")
+    @WithMockUser(roles = "COOK")
     void getActiveOrdersReturnsKitchenOrders() throws Exception {
         when(service.getActiveKitchenOrders()).thenReturn(List.of(kitchenResponse(OrderStatus.PROCESSING, false)));
 
@@ -79,7 +79,7 @@ class KitchenControllerTest {
     }
 
     @Test
-    @WithMockUser("COOK")
+    @WithMockUser(roles = "COOK")
     void getActiveOrdersReturnsEmptyListWhenNoOrders() throws Exception {
         when(service.getActiveKitchenOrders()).thenReturn(List.of());
 
@@ -89,7 +89,7 @@ class KitchenControllerTest {
     }
 
     @Test
-    @WithMockUser("COOK")
+    @WithMockUser(roles = "COOK")
     void getMetricsReturnsKitchenMetrics() throws Exception {
         KitchenMetricsDTOResponse metrics = new KitchenMetricsDTOResponse(3, 8.5, 2, 1, 0);
         when(service.getKitchenMetrics()).thenReturn(metrics);
@@ -105,7 +105,7 @@ class KitchenControllerTest {
     }
 
     @Test
-    @WithMockUser("COOK")
+    @WithMockUser(roles = "COOK")
     void getMetricsReturnsZerosWhenNoActiveOrders() throws Exception {
         KitchenMetricsDTOResponse metrics = new KitchenMetricsDTOResponse(0, 0.0, 0, 0, 0);
         when(service.getKitchenMetrics()).thenReturn(metrics);
@@ -117,7 +117,7 @@ class KitchenControllerTest {
     }
 
     @Test
-    @WithMockUser("COOK")
+    @WithMockUser(roles = "COOK")
     void updateStatusReturnsUpdatedOrder() throws Exception {
         when(service.updateKitchenStatus(1L, OrderStatus.READY))
                 .thenReturn(kitchenResponse(OrderStatus.READY, false));
@@ -134,7 +134,7 @@ class KitchenControllerTest {
     }
 
     @Test
-    @WithMockUser("COOK")
+    @WithMockUser(roles = "COOK")
     void updateStatusReturnsBadRequestForInvalidStatus() throws Exception {
         when(service.updateKitchenStatus(1L, OrderStatus.PAID))
                 .thenThrow(new ResponseStatusException(
@@ -151,7 +151,7 @@ class KitchenControllerTest {
     }
 
     @Test
-    @WithMockUser("COOK")
+    @WithMockUser(roles = "COOK")
     void updateStatusReturnsNotFoundWhenOrderMissing() throws Exception {
         when(service.updateKitchenStatus(99L, OrderStatus.READY))
                 .thenThrow(new ResponseStatusException(
