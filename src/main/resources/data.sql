@@ -55,18 +55,22 @@ INSERT INTO users (
 
 -- === USERS_ROLES === 
 
+-- === USERS_ROLES ===
 INSERT INTO users_roles (user_id, role_id) VALUES (
-    (SELECT id FROM users ORDER BY created_at LIMIT 1), 2
+    (SELECT id FROM users WHERE email = 'admin@gitsushi.com'),
+    (SELECT id FROM roles WHERE name = 'ROLE_ADMIN')
 );
 INSERT INTO users_roles (user_id, role_id) VALUES (
-    (SELECT id FROM users ORDER BY created_at LIMIT 1 OFFSET 1), 1
+    (SELECT id FROM users WHERE email = 'customer@gitsushi.com'),
+    (SELECT id FROM roles WHERE name = 'ROLE_CUSTOMER')
 );
 INSERT INTO users_roles (user_id, role_id) VALUES (
-    (SELECT id FROM users ORDER BY created_at LIMIT 1 OFFSET 2), 3
+    (SELECT id FROM users WHERE email = 'cook@gitsushi.com'),
+    (SELECT id FROM roles WHERE name = 'ROLE_COOK')
 );
 INSERT INTO users_roles (user_id, role_id) VALUES (
-    (SELECT id FROM users ORDER BY created_at LIMIT 1 OFFSET 3), 4
-);
+    (SELECT id FROM users WHERE email = 'delivery@gitsushi.com'),
+    (SELECT id FROM roles WHERE name = 'ROLE_DELIVERYMAN')
 
 -- === LA CARTA ===
 
