@@ -287,7 +287,7 @@ class OrderServiceTest {
         order.setOrderProducts(new ArrayList<>());
 
         List<OrderStatus> activeStatuses = List.of(
-                OrderStatus.PLACED, OrderStatus.PROCESSING, OrderStatus.DELAYED);
+                OrderStatus.PLACED, OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.DELAYED);
         when(orderRepository.findByStatusIn(activeStatuses)).thenReturn(List.of(order));
 
         List<KitchenOrderDTOResponse> responses = service.getActiveKitchenOrders();
@@ -330,7 +330,7 @@ class OrderServiceTest {
         order.setOrderProducts(List.of(op));
 
         when(orderRepository.findByStatusIn(
-                List.of(OrderStatus.PLACED, OrderStatus.PROCESSING, OrderStatus.DELAYED)))
+                List.of(OrderStatus.PLACED, OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.DELAYED)))
                 .thenReturn(List.of(order));
 
         List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders();
