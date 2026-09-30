@@ -58,40 +58,7 @@ public class SecurityConfiguration {
                 .sameSite(sameSite));
 
         return http
-<<<<<<< HEAD
-            .httpBasic(AbstractHttpConfigurer::disable)
-            
-            .csrf(csrf -> csrf
-                .csrfTokenRepository(csrfRepo)
-                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
-            .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
-            
-            .cors(cors -> cors
-                .configurationSource(corsConfigurationSource()))
-            
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(pre + "/users").hasRole("ADMIN")
-                .requestMatchers(pre + "/products/administration").hasRole("ADMIN")
-                .requestMatchers(pre + "/kitchen").hasAnyAuthority("ROLE_ADMIN", "ROLE_COOK")
-                .requestMatchers(pre + "/delivary").hasAnyAuthority("ROLE_ADMIN", "ROLE_DELIVERYMAN")
-                .requestMatchers(HttpMethod.POST, pre + "/orders").permitAll()
-                .requestMatchers(HttpMethod.PATCH, pre + "/orders/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_COOK", "ROLE_DELIVERYMAN")
-                .requestMatchers(pre + "/auth/login").permitAll()
-                .requestMatchers(pre + "/auth/refresh").permitAll()
-                .requestMatchers(HttpMethod.GET, pre + "/products").permitAll()
-                .requestMatchers(HttpMethod.POST, pre + "/users").permitAll()
-                // .requestMatchers(HttpMethod.GET, pre + "/auth/me").permitAll()
-                .anyRequest().authenticated())
-            
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-        
-            .build();
-    }
-=======
                 .httpBasic(AbstractHttpConfigurer::disable)
->>>>>>> feat/GS-341-implement-pay-by-card
 
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfRepo)
@@ -104,7 +71,10 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(pre + "/users").hasRole("ADMIN")
                         .requestMatchers(pre + "/products/administration").hasRole("ADMIN")
+                        .requestMatchers(pre + "/kitchen").hasAnyAuthority("ROLE_ADMIN", "ROLE_COOK")
+                        .requestMatchers(pre + "/delivary").hasAnyAuthority("ROLE_ADMIN", "ROLE_DELIVERYMAN")
                         .requestMatchers(HttpMethod.POST, pre + "/orders").permitAll()
+                        // GS-341: el pago es público para que un invitado pueda pagar sin autenticarse
                         .requestMatchers(HttpMethod.POST, pre + "/payments/checkout").permitAll()
                         .requestMatchers(HttpMethod.POST, pre + "/payments/confirm").permitAll()
                         .requestMatchers(HttpMethod.PATCH, pre + "/orders/**")
@@ -135,4 +105,4 @@ public class SecurityConfiguration {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
-   }
+}
