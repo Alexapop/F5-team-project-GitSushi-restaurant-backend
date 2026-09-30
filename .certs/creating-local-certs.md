@@ -24,7 +24,7 @@ mkcert -install
 
 ## 3. Create a localhost key for **Frontend**:
 ```bash 
-mkcert -cert-file ./certs/localhost+2.pem -key-file ./certs/localhost+2.pem localhost 127.0.0.1
+mkcert -cert-file ./certs/localhost+2.pem -key-file ./certs/localhost+2-key.pem localhost 127.0.0.1
 ```
 
 

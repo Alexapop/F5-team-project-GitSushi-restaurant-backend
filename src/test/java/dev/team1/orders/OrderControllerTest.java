@@ -70,7 +70,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOrderReturnsCreatedOrder() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
@@ -96,7 +96,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOrderPassesDeviceIdentifierToService() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
@@ -157,7 +157,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOnsiteOrderReturnsBadRequestWhenDeviceIdentifierIsMissing() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
@@ -177,7 +177,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOnsiteOrderReturnsNotFoundWhenDeviceIsUnknown() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
@@ -198,7 +198,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOrderRejectsMissingChannel() throws Exception {
                 mockMvc.perform(post("/api/v1/orders")
                                 .with(csrf())
@@ -211,7 +211,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOrderRejectsMissingPaymentMethod() throws Exception {
                 mockMvc.perform(post("/api/v1/orders")
                                 .with(csrf())
@@ -224,7 +224,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOrderRejectsInvalidEnumValue() throws Exception {
                 mockMvc.perform(post("/api/v1/orders")
                                 .with(csrf())
@@ -250,7 +250,7 @@ class OrderControllerTest {
     }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void getByIdReturnsOrderStatus() throws Exception {
                 when(service.getById(1L)).thenReturn(response(OrderStatus.PAID));
 
@@ -262,7 +262,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void getByStatusReturnsPaidOrders() throws Exception {
                 when(service.getByStatus(OrderStatus.PAID))
                                 .thenReturn(List.of(response(OrderStatus.PAID)));

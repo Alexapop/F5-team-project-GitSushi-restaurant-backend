@@ -50,7 +50,7 @@ class TableControllerTest {
     }
 
     @Test
-    @WithMockUser("CUSTOMER")
+    @WithMockUser(roles = "CUSTOMER")
     void getCurrentTableReturnsAssociatedTable() throws Exception {
         when(tableService.getTableByDeviceIdentifier("tablet-12"))
                 .thenReturn(new TableDTOResponse(12));
@@ -64,7 +64,7 @@ class TableControllerTest {
     }
 
     @Test
-    @WithMockUser("CUSTOMER")
+    @WithMockUser(roles = "CUSTOMER")
     void getCurrentTableRejectsMissingDeviceIdentifier() throws Exception {
         mockMvc.perform(get("/api/v1/tables/by-device"))
                 .andExpect(status().isBadRequest());
