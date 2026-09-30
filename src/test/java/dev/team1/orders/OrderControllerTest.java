@@ -297,4 +297,23 @@ class OrderControllerTest {
                                 12,
                                 paymentStatus);
         }
+        @Test
+    void createOrderRejectsChefNoteLongerThan500Characters() throws Exception {
+    String requestBody = """
+            {
+                "items": [{"productId": 2, "quantity": 1}],
+                "chefNote": "%s",
+                "channel": "ONLINE",
+                "paymentMethod": "ONLINE_CARD"
+            }
+            """.formatted("a".repeat(501));
+
+    mockMvc.perform(post("/api/v1/orders")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isBadRequest());
+
+    verifyNoInteractions(service);
+}
 }

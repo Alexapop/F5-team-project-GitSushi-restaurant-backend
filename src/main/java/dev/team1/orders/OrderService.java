@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.jsoup.Jsoup;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,6 +70,7 @@ public class OrderService {
             String deviceIdentifier,
             UUID userId) {
         validatePaymentMethod(request.channel(), request.paymentMethod());
+        String chefNote = prepareChefNote(request.chefNote());
 
         OrderEntity order = new OrderEntity();
         // GS-341: enlazamos el pedido con el usuario autenticado (los invitados no tienen usuario).
@@ -122,7 +124,7 @@ public class OrderService {
         order.setVatRate(VAT_RATE);
         order.setVatAmount(vatAmount);
         order.setTotal(total);
-        order.setChefNote(request.chefNote());
+        order.setChefNote(chefNote);
         order.setOrderProducts(ops);
         order.setChannel(request.channel());
         order.setPaymentMethod(request.paymentMethod());
@@ -132,6 +134,29 @@ public class OrderService {
 
         OrderEntity savedOrder = orderRepository.save(order);
         return toResponse(savedOrder);
+    }
+
+    // add method for chef note
+    private String prepareChefNote(String chefNote) {
+        if (chefNote == null) {
+            return null;
+        }
+
+        if (chefNote.length() > 500) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Chef note must not exceed 500 characters");
+        }
+
+        String cleanedNote = Jsoup.parseBodyFragment(chefNote)
+                .body()
+                .text();
+
+        if (cleanedNote.isBlank()) {
+            return null;
+        }
+
+        return cleanedNote;
     }
 
     public List<PaymentMethod> getAllowedPaymentMethods(OrderChannel channel) {
