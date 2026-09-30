@@ -13,7 +13,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.UUID;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
+import dev.team1.auth.CustomUserDetails;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
@@ -32,10 +35,21 @@ public class OrderController {
     }
 
     @PostMapping
+    
     public ResponseEntity<OrderDTOResponse> createOrder(
             @Valid @RequestBody OrderDTORequest request,
-            @RequestHeader(value = "Device-Identifier", required = false) String deviceIdentifier) {
-        OrderDTOResponse response = orderService.createOrder(request, deviceIdentifier);
+            @RequestHeader(value = "Device-Identifier", required = false) String deviceIdentifier,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+
+        // GS-341: si el cliente está autenticado guardamos su id; un invitado queda como null.
+        UUID userId = null;
+
+        if (currentUser != null) {
+            userId = currentUser.user().getId();
+        }
+
+        OrderDTOResponse response = orderService.createOrder(request, deviceIdentifier, userId);
+
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

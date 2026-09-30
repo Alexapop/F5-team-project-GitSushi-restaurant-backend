@@ -5,12 +5,14 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.persistence.FetchType;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
 import dev.team1.enums.PaymentStatus;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.tables.TableEntity;
+import dev.team1.users.UserEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Table;
@@ -80,6 +82,11 @@ public class OrderEntity {
     @ManyToOne
     @JoinColumn(name = "id_table")
     private TableEntity table;
+
+    // GS-341: usuario que hizo el pedido; es null cuando el pedido lo hace un invitado.
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "user_id", nullable = true)
+    private UserEntity user;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

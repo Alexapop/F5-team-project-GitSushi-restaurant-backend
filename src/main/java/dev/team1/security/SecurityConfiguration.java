@@ -22,10 +22,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import lombok.RequiredArgsConstructor;
 
-@Configuration 
-@EnableWebSecurity 
-@RequiredArgsConstructor 
-@EnableMethodSecurity 
+@Configuration
+@EnableWebSecurity
+@RequiredArgsConstructor
+@EnableMethodSecurity
 public class SecurityConfiguration {
 
     private final JwtFilter jwtFilter;
@@ -39,23 +39,22 @@ public class SecurityConfiguration {
     @Value("${cookie-same-site}")
     private String sameSite;
 
-    @Bean 
+    @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         // Configuration without auth and security
         //
         // http
-        //     .csrf(csrf -> csrf.disable())
-        //     .authorizeHttpRequests(auth -> auth
-        //         .anyRequest().permitAll()
-        //     );
+        // .csrf(csrf -> csrf.disable())
+        // .authorizeHttpRequests(auth -> auth
+        // .anyRequest().permitAll()
+        // );
         // return http.build();
 
         CookieCsrfTokenRepository csrfRepo = new CookieCsrfTokenRepository();
         csrfRepo.setCookieCustomizer(cookie -> cookie
-            .httpOnly(false)
-            .secure(true)
-            .sameSite(sameSite)
-        );
+                .httpOnly(false)
+                .secure(true)
+                .sameSite(sameSite));
 
         return http
             .cors(cors -> cors
@@ -77,6 +76,9 @@ public class SecurityConfiguration {
                 .requestMatchers(pre + "/delivery").hasAnyAuthority("ROLE_ADMIN", "ROLE_DELIVERYMAN")
                 .requestMatchers(pre + "/delivery/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_DELIVERYMAN")
                 .requestMatchers(HttpMethod.POST, pre + "/orders").permitAll()
+                // GS-341: el pago es público para que un invitado pueda pagar sin autenticarse
+                .requestMatchers(HttpMethod.POST, pre + "/payments/checkout").permitAll()
+                .requestMatchers(HttpMethod.POST, pre + "/payments/confirm").permitAll()
                 .requestMatchers(HttpMethod.PATCH, pre + "/orders/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_COOK", "ROLE_DELIVERYMAN")
                 .requestMatchers(pre + "/auth/login").permitAll()
                 .requestMatchers(pre + "/auth/refresh").permitAll()
@@ -90,7 +92,6 @@ public class SecurityConfiguration {
             .build();
     }
 
-
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -103,5 +104,4 @@ public class SecurityConfiguration {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
-
 }

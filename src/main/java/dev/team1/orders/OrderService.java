@@ -8,6 +8,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,13 +30,15 @@ import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
 import dev.team1.tables.TableEntity;
 import dev.team1.tables.TableRepository;
+import dev.team1.users.UserEntity;
+import dev.team1.users.UserRepository;
 
 @Service
 public class OrderService {
 
     // Provisional business rule: product prices exclude VAT.
     private static final int VAT_RATE = 10;
-        private static final int KITCHEN_TARGET_MINUTES = 15;
+    private static final int KITCHEN_TARGET_MINUTES = 15;
 
     private static final Map<OrderChannel, List<PaymentMethod>> ALLOWED_PAYMENT_METHODS = Map.of(
             OrderChannel.ONSITE, List.of(PaymentMethod.CASH_ONSITE, PaymentMethod.CARD_ONSITE),
@@ -48,20 +51,35 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductRepository productsRepository;
     private final TableRepository tableRepository;
+    private final UserRepository userRepository;
 
     public OrderService(OrderRepository orderRepository,
             ProductRepository productsRepository,
-            TableRepository tableRepository) {
+            TableRepository tableRepository,
+            UserRepository userRepository) {
         this.orderRepository = orderRepository;
         this.productsRepository = productsRepository;
         this.tableRepository = tableRepository;
+        this.userRepository = userRepository;
     }
 
     @Transactional
-    public OrderDTOResponse createOrder(OrderDTORequest request, String deviceIdentifier) {
+    public OrderDTOResponse createOrder(
+            OrderDTORequest request,
+            String deviceIdentifier,
+            UUID userId) {
         validatePaymentMethod(request.channel(), request.paymentMethod());
 
         OrderEntity order = new OrderEntity();
+        // GS-341: enlazamos el pedido con el usuario autenticado (los invitados no tienen usuario).
+        if (userId != null) {
+            UserEntity user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.UNAUTHORIZED,
+                            "Authenticated user no longer exists"));
+            order.setUser(user);
+        }
+
         List<OrderProductEntity> ops = new ArrayList<>();
 
         BigDecimal subtotal = BigDecimal.ZERO;
@@ -216,20 +234,39 @@ public class OrderService {
                 .toList();
     }
 
-        @Transactional(readOnly = true)
-    public List<KitchenOrderDTOResponse> getActiveKitchenOrders() {
+    // GS-341: un pedido con tarjeta online no se envía a cocina hasta que esté pagado.
+    private boolean isAwaitingOnlinePayment(OrderEntity order) {
+        return order.getPaymentMethod() == PaymentMethod.ONLINE_CARD
+                && order.getStatus() == OrderStatus.PLACED;
+    }
+
+    // Incluye PAID para que el pedido pagado online aparezca en cocina,
+    // y excluye los que todavía esperan el pago online.
+    private List<OrderEntity> findActiveKitchenOrders() {
         List<OrderEntity> orders = orderRepository.findByStatusIn(
-                List.of(OrderStatus.PLACED, OrderStatus.PROCESSING, OrderStatus.DELAYED));
+                List.of(
+                        OrderStatus.PLACED,
+                        OrderStatus.PAID,
+                        OrderStatus.PROCESSING,
+                        OrderStatus.DELAYED));
+
+        return orders.stream()
+                .filter(order -> !isAwaitingOnlinePayment(order))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<KitchenOrderDTOResponse> getActiveKitchenOrders() {
+        List<OrderEntity> orders = findActiveKitchenOrders();
 
         return orders.stream()
                 .map(this::toKitchenResponse)
                 .toList();
     }
 
-        @Transactional(readOnly = true)
+    @Transactional(readOnly = true)
     public KitchenMetricsDTOResponse getKitchenMetrics() {
-        List<OrderEntity> activeOrders = orderRepository.findByStatusIn(
-                List.of(OrderStatus.PLACED, OrderStatus.PROCESSING, OrderStatus.DELAYED));
+        List<OrderEntity> activeOrders = findActiveKitchenOrders();
 
         long total = activeOrders.size();
 
@@ -239,7 +276,9 @@ public class OrderService {
                 .orElse(0.0);
 
         long processingCount = activeOrders.stream()
-                .filter(order -> order.getStatus() == OrderStatus.PROCESSING || order.getStatus() == OrderStatus.PLACED)
+                .filter(order -> order.getStatus() == OrderStatus.PROCESSING
+                        || order.getStatus() == OrderStatus.PLACED
+                        || order.getStatus() == OrderStatus.PAID)
                 .count();
 
         long delayedCount = activeOrders.stream()
@@ -251,7 +290,7 @@ public class OrderService {
         return new KitchenMetricsDTOResponse(total, averageMinutes, processingCount, delayedCount, readyCount);
     }
 
-        @Transactional(readOnly = true)
+    @Transactional(readOnly = true)
     public DeliveryMetricsDTOResponse getDeliveryMetrics() {
         long readyCount = orderRepository.findByStatus(OrderStatus.READY).size();
         long inTransitCount = orderRepository.findByStatus(OrderStatus.ONTHEWAY).size();
@@ -269,7 +308,7 @@ public class OrderService {
                 readyCount, inTransitCount, deliveredToday.size(), averageDeliveryMinutes);
     }
 
-        private KitchenOrderDTOResponse toKitchenResponse(OrderEntity order) {
+    private KitchenOrderDTOResponse toKitchenResponse(OrderEntity order) {
         List<KitchenOrderItemDTO> items = order.getOrderProducts().stream()
                 .map(op -> new KitchenOrderItemDTO(
                         op.getProduct().getName(),
@@ -299,13 +338,17 @@ public class OrderService {
         return minutesElapsed >= KITCHEN_TARGET_MINUTES;
     }
 
-
-
-        @Transactional
+    @Transactional
     public KitchenOrderDTOResponse updateKitchenStatus(Long id, OrderStatus newStatus) {
         OrderEntity order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Order not found: " + id));
+
+        if (isAwaitingOnlinePayment(order)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Online card payment must be confirmed before preparation");
+        }
 
         validateKitchenStatusTransition(order.getStatus(), newStatus);
 
