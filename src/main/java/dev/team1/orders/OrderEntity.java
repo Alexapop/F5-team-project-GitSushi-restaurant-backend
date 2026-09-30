@@ -83,6 +83,7 @@ public class OrderEntity {
     @JoinColumn(name = "id_table")
     private TableEntity table;
 
+    // GS-341: usuario que hizo el pedido; es null cuando el pedido lo hace un invitado.
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "user_id", nullable = true)
     private UserEntity user;

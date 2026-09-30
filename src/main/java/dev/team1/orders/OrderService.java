@@ -71,6 +71,7 @@ public class OrderService {
         validatePaymentMethod(request.channel(), request.paymentMethod());
 
         OrderEntity order = new OrderEntity();
+        // GS-341: enlazamos el pedido con el usuario autenticado (los invitados no tienen usuario).
         if (userId != null) {
             UserEntity user = userRepository.findById(userId)
                     .orElseThrow(() -> new ResponseStatusException(
@@ -233,11 +234,14 @@ public class OrderService {
                 .toList();
     }
 
+    // GS-341: un pedido con tarjeta online no se envía a cocina hasta que esté pagado.
     private boolean isAwaitingOnlinePayment(OrderEntity order) {
         return order.getPaymentMethod() == PaymentMethod.ONLINE_CARD
                 && order.getStatus() == OrderStatus.PLACED;
     }
 
+    // Incluye PAID para que el pedido pagado online aparezca en cocina,
+    // y excluye los que todavía esperan el pago online.
     private List<OrderEntity> findActiveKitchenOrders() {
         List<OrderEntity> orders = orderRepository.findByStatusIn(
                 List.of(

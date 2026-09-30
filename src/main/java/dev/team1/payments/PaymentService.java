@@ -23,6 +23,8 @@ import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.payments.dtos.PaymentDTORequest;
 import dev.team1.payments.dtos.PaymentDTOResponse;
 
+// GS-341: integra la pasarela de pago Stripe para pagar con tarjeta los pedidos a domicilio.
+// Crea la sesión de pago y, después, verifica con Stripe que el pedido se ha pagado de verdad.
 @Service
 public class PaymentService {
 
@@ -31,6 +33,8 @@ public class PaymentService {
     private final OrderRepository orderRepository;
     private final OrderService orderService;
 
+    // Los valores de Stripe vienen de application.properties (que los lee del fichero .env),
+    // así la clave secreta nunca se sube al repositorio.
     @Value("${stripe.api.key:}")
     private String stripeApiKey;
 
@@ -45,15 +49,17 @@ public class PaymentService {
         this.orderService = orderService;
     }
 
-    // 1. Creates the Stripe payment page for an order
+    // 1. Crea la página de pago de Stripe para un pedido.
+    // readOnly: solo leemos el pedido (y su usuario, que es LAZY); no modificamos nada en la BD.
     @Transactional(readOnly = true)
     public PaymentDTOResponse createCheckoutSession(PaymentDTORequest request) {
-        // a) find the order in the DB (the amount comes from here, NOT from the frontend)
+        // a) Buscamos el pedido en la BD: el importe sale de aquí y NO del frontend,
+        //    para que el cliente no pueda cambiar el precio a pagar.
         OrderEntity order = orderRepository.findById(request.orderId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Order not found: " + request.orderId()));
 
-        // b) check that this order is actually meant to be paid online
+        // b) Solo se paga con Stripe un pedido a domicilio con "Tarjeta online" que aún no esté pagado.
         if (order.getChannel() != OrderChannel.ONLINE
                 || order.getPaymentMethod() != PaymentMethod.ONLINE_CARD) {
             throw new ResponseStatusException(
@@ -64,10 +70,12 @@ public class PaymentService {
                     HttpStatus.CONFLICT, "Order cannot be paid from status: " + order.getStatus());
         }
 
-        // logged-in customers: use the account email; guests: use the email from the request
+        // Usuario autenticado: usamos el email de su cuenta. Invitado: el email que envía en la petición.
         String email = order.getUser() != null ? order.getUser().getEmail() : request.email();
 
-        // c) describe what Stripe should show on the payment page
+        // c) Describimos lo que Stripe debe mostrar en la página de pago.
+        //    Stripe sustituye {CHECKOUT_SESSION_ID} por el id real al volver al frontend,
+        //    y clientReferenceId guarda nuestro id de pedido para recuperarlo al confirmar.
         SessionCreateParams params = SessionCreateParams.builder()
                 .setMode(SessionCreateParams.Mode.PAYMENT)
                 .addPaymentMethodType(
@@ -79,7 +87,8 @@ public class PaymentService {
                 .addLineItem(buildLineItem(order))
                 .build();
 
-        // d) send it to Stripe
+        // d) Enviamos la sesión a Stripe. La clave se comprueba aquí, después de las validaciones,
+        //    para que un pedido inexistente devuelva 404 aunque falte la clave.
         setStripeApiKey();
         try {
             Session session = Session.create(params);
@@ -95,7 +104,8 @@ public class PaymentService {
         }
     }
 
-    // 2. After payment, ask Stripe whether it really was paid, then mark the order as PAID
+    // 2. Después del pago, preguntamos a Stripe si de verdad se ha cobrado y marcamos el pedido como PAID.
+    //    No nos fiamos del frontend: cualquiera podría abrir la URL de éxito sin haber pagado.
     public OrderDTOResponse confirmPayment(String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {
             throw new ResponseStatusException(
@@ -111,6 +121,7 @@ public class PaymentService {
                 throw new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED, "Payment not completed");
             }
 
+            // Recuperamos el id del pedido que guardamos en la sesión al crearla.
             Long orderId;
             try {
                 orderId = Long.valueOf(session.getClientReferenceId());
@@ -135,6 +146,7 @@ public class PaymentService {
                         "Payment session does not reference an online card order");
             }
 
+            // Comprobamos que lo cobrado por Stripe coincide con el total del pedido (importe y moneda).
             Long paidAmount = session.getAmountTotal();
             long expectedAmount = toCents(order.getTotal());
 
@@ -146,6 +158,7 @@ public class PaymentService {
                         HttpStatus.CONFLICT, "Payment session does not match the order");
             }
 
+            // Reutilizamos la lógica existente de pedidos (PLACED -> PAID); si ya estaba pagado no hace nada.
             return orderService.markAsPaid(orderId);
         } catch (StripeException e) {
             throw new ResponseStatusException(
@@ -153,7 +166,7 @@ public class PaymentService {
         }
     }
 
-    // the single product line on the Stripe page: "GitSushi - Order #5", total amount
+    // La única línea que se muestra en la página de Stripe: "GitSushi - Order #5" con el total del pedido.
     private SessionCreateParams.LineItem buildLineItem(OrderEntity order) {
         SessionCreateParams.LineItem.PriceData.ProductData product =
                 SessionCreateParams.LineItem.PriceData.ProductData.builder()
@@ -173,6 +186,7 @@ public class PaymentService {
                 .build();
     }
 
+    // Si falta la clave (por ejemplo, sin fichero .env) devolvemos 503 en vez de un error genérico.
     private void setStripeApiKey() {
         if (stripeApiKey == null || stripeApiKey.isBlank()) {
             throw new ResponseStatusException(
@@ -181,7 +195,7 @@ public class PaymentService {
         Stripe.apiKey = stripeApiKey;
     }
 
-    // Stripe works in cents: 12.50 € -> 1250
+    // Stripe trabaja en céntimos: 12.50 € -> 1250
     private long toCents(BigDecimal amount) {
         if (amount == null || amount.signum() <= 0) {
             throw new ResponseStatusException(
