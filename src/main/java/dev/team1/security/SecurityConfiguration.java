@@ -3,7 +3,6 @@ package dev.team1.security;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.server.Cookie.SameSite;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -85,8 +84,9 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, pre + "/users").permitAll()
                         // .requestMatchers(HttpMethod.GET, pre + "/auth/me").permitAll()
                         .anyRequest().authenticated())
-
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+          
+           
+                   .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 
