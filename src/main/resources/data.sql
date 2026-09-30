@@ -71,6 +71,7 @@ INSERT INTO users_roles (user_id, role_id) VALUES (
 INSERT INTO users_roles (user_id, role_id) VALUES (
     (SELECT id FROM users WHERE email = 'delivery@gitsushi.com'),
     (SELECT id FROM roles WHERE name = 'ROLE_DELIVERYMAN')
+);
 
 -- === LA CARTA ===
 
