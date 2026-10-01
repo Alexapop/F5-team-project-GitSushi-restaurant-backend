@@ -14,6 +14,7 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import dev.team1.auth.CustomUserDetails;
 import dev.team1.auth.CustomUserDetailsService;
+import dev.team1.security.exceptions.JwtNoExistException;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -84,6 +85,8 @@ public class JwtFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
+        
+        
         boolean sendCsrfOnly = (uri.equals("/api/v1/auth/me") &&
                 method.equals(HttpMethod.GET.name()) &&
                 (token == null || token.isBlank()));
@@ -94,6 +97,9 @@ public class JwtFilter extends OncePerRequestFilter {
             try {
                 jwtService.validateJwtToken(token);
                 setCustomUserDetailsToSecurityContextHolder(token);
+            } catch (JwtNoExistException exc) {
+                resolver.resolveException(request, response, null, exc);
+                return;
             } catch (ExpiredJwtException exc) {
                 resolver.resolveException(request, response, null, exc);
                 return;
@@ -116,7 +122,7 @@ public class JwtFilter extends OncePerRequestFilter {
         // return null;
 
         // But we use other one (Cookie Based Authentication) bacause
-        // we want JWT-token to be in httpOnly-cookie to awoid XSS
+        // we want JWT-token to be in secure httpOnly-cookie to awoid XSS
         // attacks through JavaScript:
 
         if (request.getCookies() == null) {
