@@ -10,6 +10,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -49,6 +51,65 @@ import dev.team1.users.UserRepository;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
+
+    @Test
+    void getActiveKitchenOrdersMarksNoteAsPriority() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setChefNote("Alergia al sésamo");
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of(order));
+
+        List<KitchenOrderDTOResponse> responses = service.getActiveKitchenOrders();
+
+        assertEquals(1, responses.size());
+        assertEquals("Alergia al sésamo", responses.get(0).chefNote());
+        assertEquals(true, responses.get(0).hasPriorityNote());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "   ", "\t", "\n"})
+    void getActiveKitchenOrdersDoesNotMarkMissingNoteAsPriority(String chefNote) {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setChefNote(chefNote);
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of(order));
+
+        List<KitchenOrderDTOResponse> responses = service.getActiveKitchenOrders();
+
+        assertEquals(1, responses.size());
+        assertNull(responses.get(0).chefNote());
+        assertEquals(false, responses.get(0).hasPriorityNote());
+    }
+
+    @Test
+    void updateKitchenStatusToReadyPreservesNoteForPickup() {
+        String chefNote = "Alergia al sésamo";
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setChefNote(chefNote);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of(order));
+
+        KitchenOrderDTOResponse response = service.updateKitchenStatus(1L, OrderStatus.READY);
+
+        assertEquals(OrderStatus.READY, response.status());
+        assertEquals(chefNote, response.chefNote());
+        assertEquals(true, response.hasPriorityNote());
+        ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(captor.capture());
+        assertEquals(OrderStatus.READY, captor.getValue().getStatus());
+        assertEquals(chefNote, captor.getValue().getChefNote());
+
+        List<OrderDTOResponse> pickupOrders = service.getByStatus(OrderStatus.READY);
+
+        assertEquals(1, pickupOrders.size());
+        assertEquals(chefNote, pickupOrders.get(0).chefNote());
+    }
 
     @Mock
     private OrderRepository orderRepository;
