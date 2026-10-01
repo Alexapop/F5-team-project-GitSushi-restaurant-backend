@@ -48,7 +48,9 @@ public class OrderService {
 
     private static final Map<PaymentMethod, PaymentStatus> PAYMENT_STATUS = Map.of(
             PaymentMethod.CASH_ONSITE, PaymentStatus.PENDING_CASH,
-            PaymentMethod.CARD_ONSITE, PaymentStatus.PENDING_CARD_TERMINAL);
+            PaymentMethod.CARD_ONSITE, PaymentStatus.PENDING_CARD_TERMINAL,
+            PaymentMethod.ONLINE_CARD, PaymentStatus.PENDING_ONLINE_PAYMENT,
+            PaymentMethod.CASH_ON_DELIVERY, PaymentStatus.PENDING_CASH_ON_DELIVERY);
 
     private final OrderRepository orderRepository;
     private final ProductRepository productsRepository;
@@ -452,6 +454,9 @@ public class OrderService {
 
         order.setStatus(OrderStatus.DELIVERED);
         order.setDeliveredAt(LocalDateTime.now());
+        if (order.getPaymentMethod() == PaymentMethod.CASH_ON_DELIVERY) {
+            order.setPaymentStatus(null); // el repartidor ya ha cobrado
+        }
         OrderEntity savedOrder = orderRepository.save(order);
         return toResponse(savedOrder);
     }
