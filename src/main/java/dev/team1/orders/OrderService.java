@@ -346,23 +346,21 @@ public class OrderService {
         String chefNote = order.getChefNote();
         boolean hasPriorityNote = false;
 
-        if (chefNote != null && !chefNote.isBlank()){
-                hasPriorityNote = true;
-        }else {
-                chefNote= null;
-        }        
+        if (chefNote != null && !chefNote.isBlank()) {
+            hasPriorityNote = true;
+        } else {
+            chefNote = null;
         }
 
         return new KitchenOrderDTOResponse(
                 order.getId(),
                 order.getStatus(),
-                order.getChefNote(),
+                chefNote,
                 order.getCreatedAt(),
                 isDelayed,
                 items,
                 order.getPaymentStatus(),
-                hasPriorityNote();
-        )
+                hasPriorityNote);
     }
 
     private boolean isOrderDelayed(OrderEntity order) {
