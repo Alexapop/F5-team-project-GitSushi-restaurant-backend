@@ -5,14 +5,16 @@ import java.time.Instant;
 
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
+import dev.team1.enums.PaymentMethod;
 
 public record PaidInvoiceDTOResponse(
   Long invoiceId,
   String customerName,
-  int tableNumber,
+  Integer tableNumber,
   OrderChannel channel,
   BigDecimal amount,
   OrderStatus status,
+  PaymentMethod paymentMethod,
   Instant paidAt
 ) {
   
