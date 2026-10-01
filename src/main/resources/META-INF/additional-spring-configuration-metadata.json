@@ -19,6 +19,17 @@
             "name": "jwt-secret",
             "type": "java.lang.String",
             "description": "JWT secret for generating access and refresh auth tokens"
+        },
+        {
+            "name": "access-token-duration-minutes",
+            "type": "java.lang.int",
+            "description": "A duration in minutes of JWT access token and cookie with it"
+        },
+        {
+            "name": "refresh-token-duration-days",
+            "type": "java.lang.int",
+            "description": "A duration in days of JWT refresh token and cookie with it"
         }
+
     ]
 }

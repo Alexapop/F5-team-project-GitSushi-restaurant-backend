@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 import dev.team1.security.dtos.JwtAuthenticationDTO;
 import dev.team1.security.exceptions.JwtNoExistException;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -25,6 +24,12 @@ public class JwtService {
 
     @Value("${jwt-secret}")
     private String jwtSecret;
+
+    @Value("${access-token-duration-minutes}")
+    private int accessTokenDurationMinutes;
+
+    @Value("${refresh-token-duration-days}")
+    private int refreshTokenDurationDays;
 
     public JwtAuthenticationDTO generateAuthToken(String email, String role) {
         return JwtAuthenticationDTO.builder()
@@ -77,7 +82,7 @@ public class JwtService {
     private String generateJwtToken(String email, String role) {
         Date date = Date.from(
             LocalDateTime.now()
-            .plusMinutes(5)
+            .plusMinutes(accessTokenDurationMinutes)
             .atZone(ZoneId.systemDefault())
             .toInstant()
         );
@@ -99,7 +104,7 @@ public class JwtService {
     private String generateRefreshToken(String email, String role) {
         Date date = Date.from(
             LocalDateTime.now()
-            .plusDays(30)
+            .plusDays(refreshTokenDurationDays)
             .atZone(ZoneId.systemDefault())
             .toInstant()
         );
