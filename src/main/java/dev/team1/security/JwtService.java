@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import dev.team1.security.dtos.JwtAuthenticationDTO;
+import dev.team1.security.exceptions.JwtNoExistException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -62,7 +63,7 @@ public class JwtService {
 
     public boolean validateJwtToken(String token) {
         if (token == null || token.isBlank() || token.isEmpty()) {
-            throw new JwtException("Token doesn't exist");
+            throw new JwtNoExistException("Token doesn't exist");
         }
         
         Jwts.parser()
