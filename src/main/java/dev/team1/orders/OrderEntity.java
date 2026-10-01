@@ -58,7 +58,8 @@ public class OrderEntity {
 
     @Column(nullable = false, scale = 2)
     private BigDecimal total;
-
+    
+ //added delivery details 
     @Column(precision = 19, scale = 2, updatable = false)
     private BigDecimal deliveryFee;
 
