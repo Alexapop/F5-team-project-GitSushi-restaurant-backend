@@ -1,4 +1,4 @@
-package dev.team1.orders.dtos;
+package dev.team1.kitchen.dtos;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

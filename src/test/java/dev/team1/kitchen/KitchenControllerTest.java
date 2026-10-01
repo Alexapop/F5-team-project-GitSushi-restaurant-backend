@@ -1,4 +1,4 @@
-package dev.team1.orders;
+package dev.team1.kitchen;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,13 +22,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
 import dev.team1.enums.OrderStatus;
-import dev.team1.orders.dtos.KitchenOrderDTOResponse;
-import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
-
+import dev.team1.kitchen.KitchenController;
+import dev.team1.kitchen.dtos.KitchenMetricsDTOResponse;
+import dev.team1.kitchen.dtos.KitchenOrderDTOResponse;
+import dev.team1.kitchen.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.security.JwtFilter;
 import dev.team1.security.SecurityConfiguration;
-import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
-
+import dev.team1.orders.OrderService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
