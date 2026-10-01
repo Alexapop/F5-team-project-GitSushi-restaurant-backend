@@ -39,6 +39,7 @@ import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
 import dev.team1.orders.dtos.DeliveryMetricsDTOResponse;
+import dev.team1.orders.dtos.DeliveryConfirmationDTORequest;
 import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
 import dev.team1.tables.TableEntity;
@@ -678,5 +679,89 @@ class OrderServiceTest {
                 org.mockito.ArgumentMatchers.eq(OrderStatus.DELIVERED), sinceCaptor.capture());
 
         assertEquals(LocalDate.now().atStartOfDay(), sinceCaptor.getValue());
+    }
+
+        @Test
+    void markAsDeliveredUpdatesStatusAndSetsDeliveredAt() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        order.setPaymentMethod(PaymentMethod.CARD_ONSITE);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        OrderDTOResponse response = service.markAsDelivered(1L, null);
+
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+        assertEquals(OrderStatus.DELIVERED, response.status());
+        assertEquals(order.getDeliveredAt(), order.getDeliveredAt());
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void markAsDeliveredRejectsOrderNotOnTheWay() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsDelivered(1L, null));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void markAsDeliveredOrderNotFoundThrowsNotFound() {
+        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsDelivered(99L, null));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+    }
+
+    @Test
+    void markAsDeliveredRequiresCashConfirmationForCashOnDelivery() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        order.setPaymentMethod(PaymentMethod.CASH_ON_DELIVERY);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsDelivered(1L, null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void markAsDeliveredAcceptsCashOnDeliveryWithConfirmation() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        order.setPaymentMethod(PaymentMethod.CASH_ON_DELIVERY);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        DeliveryConfirmationDTORequest request = new DeliveryConfirmationDTORequest(true);
+        OrderDTOResponse response = service.markAsDelivered(1L, request);
+
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+        assertEquals(OrderStatus.DELIVERED, response.status());
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void markAsDeliveredRejectsFalseCashCollectedForCashOnDelivery() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        order.setPaymentMethod(PaymentMethod.CASH_ON_DELIVERY);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        DeliveryConfirmationDTORequest request = new DeliveryConfirmationDTORequest(false);
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsDelivered(1L, request));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
     }
 }
