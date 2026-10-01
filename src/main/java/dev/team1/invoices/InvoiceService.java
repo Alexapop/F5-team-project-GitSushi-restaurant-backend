@@ -1,11 +1,15 @@
 package dev.team1.invoices;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import dev.team1.contracts.IInvoiceService;
+import dev.team1.enums.OrderStatus;
 import dev.team1.invoices.dtos.InvoiceDTORequest;
 import dev.team1.invoices.dtos.InvoiceDTOResponse;
+import dev.team1.invoices.dtos.PaidInvoiceDTOResponse;
 import dev.team1.invoices.exceptions.InvoiceException;
 import dev.team1.invoices.exceptions.InvoiceExceptionNotFound;
 import dev.team1.mappers.InvoiceMapper;
@@ -43,4 +47,11 @@ public class InvoiceService implements IInvoiceService {
     return InvoiceMapper.toDTO(invoice);
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public Page<PaidInvoiceDTOResponse> findPaid(Pageable pageable) {
+    return invoiceRepository
+      .findByOrder_Status(OrderStatus.PAID, pageable)
+      .map(InvoiceMapper::toPaidDTO);
+  }
 }
