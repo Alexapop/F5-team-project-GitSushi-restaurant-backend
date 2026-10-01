@@ -99,6 +99,7 @@ public class JwtFilter extends OncePerRequestFilter {
                 setCustomUserDetailsToSecurityContextHolder(token);
             } catch (JwtNoExistException exc) {
                 resolver.resolveException(request, response, null, exc);
+                return;
             } catch (ExpiredJwtException exc) {
                 resolver.resolveException(request, response, null, exc);
                 return;
