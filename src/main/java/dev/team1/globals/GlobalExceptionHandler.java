@@ -19,6 +19,7 @@ import dev.team1.offers.exceptions.OfferException;
 import dev.team1.products.exceptions.ProductException;
 import dev.team1.products.exceptions.ProductExceptionConflict;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
+import dev.team1.security.exceptions.JwtNoExistException;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 
@@ -77,6 +78,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleBadCredentialsException(
             BadCredentialsException exception) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(exception.getMessage());
+    }
+
+    @ExceptionHandler(JwtNoExistException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ResponseEntity<String> handleJwtNoExistException(JwtNoExistException exception) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authentication failed: " + exception.getMessage());
     }
 
     @ExceptionHandler(ExpiredJwtException.class)

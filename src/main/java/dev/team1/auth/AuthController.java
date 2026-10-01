@@ -37,6 +37,12 @@ public class AuthController {
     @Value("${cookie-same-site}")
     private String sameSite;
 
+    @Value("${access-token-duration-minutes}")
+    private int accessTokenDurationMinutes;
+
+    @Value("${refresh-token-duration-days}")
+    private int refreshTokenDurationDays;
+
     @PostMapping("login")
     public ResponseEntity<UserResponseDTO> loginHandler(@RequestBody @Valid CredentialsDTO credentials, HttpServletResponse response) {
         
@@ -85,12 +91,18 @@ public class AuthController {
     
 
     private Cookie generateCookie(String key, String value, String path) {
+        
+        int maxAge;
+        switch (key) {
+            case "access_token" -> maxAge = (int) Duration.ofMinutes(accessTokenDurationMinutes).toSeconds();
+            case "refresh_token" -> maxAge = (int) Duration.ofDays(refreshTokenDurationDays).toSeconds();
+            default -> maxAge = (int) Duration.ofMinutes(30).toSeconds();
+        }
+        
         Cookie cookie = new Cookie(key, value);
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
-        cookie.setMaxAge(
-            (int) Duration.ofMinutes(15).toSeconds()
-        );
+        cookie.setMaxAge(maxAge);
         cookie.setPath(path);
         cookie.setAttribute("SameSite", sameSite);      
         return cookie;

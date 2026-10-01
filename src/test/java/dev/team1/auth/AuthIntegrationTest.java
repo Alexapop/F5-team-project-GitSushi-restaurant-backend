@@ -119,10 +119,10 @@ class AuthIntegrationTest {
     }
 
     @Test
-    void logout_withoutToken_returnsForbidden() throws Exception {
+    void logout_withoutToken_returnsUnauthorized() throws Exception {
         // /auth/logout не в publicURIList и не имеет permitAll в SecurityConfiguration
         mockMvc.perform(get(apiEndpoint + "/auth/logout"))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isUnauthorized());
     }
 
     @Test
