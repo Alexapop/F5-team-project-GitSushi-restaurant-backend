@@ -343,6 +343,16 @@ public class OrderService {
 
         boolean isDelayed = isOrderDelayed(order);
 
+        String chefNote = order.getChefNote();
+        boolean hasPriorityNote = false;
+
+        if (chefNote != null && !chefNote.isBlank()){
+                hasPriorityNote = true;
+        }else {
+                chefNote= null;
+        }        
+        }
+
         return new KitchenOrderDTOResponse(
                 order.getId(),
                 order.getStatus(),
@@ -350,7 +360,9 @@ public class OrderService {
                 order.getCreatedAt(),
                 isDelayed,
                 items,
-                order.getPaymentStatus());
+                order.getPaymentStatus(),
+                hasPriorityNote();
+        )
     }
 
     private boolean isOrderDelayed(OrderEntity order) {
