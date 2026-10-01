@@ -6,7 +6,6 @@ import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
 import dev.team1.roles.RoleEntity;
 import dev.team1.roles.RoleRepository;
-import dev.team1.security.PasswordEncoderPort;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
 
@@ -23,6 +22,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,7 +52,7 @@ class UserServiceTest {
 
 
     @Mock
-    private PasswordEncoderPort passwordEncoderPort;
+    private PasswordEncoder passwordEncoder;
 
     private MockedStatic<UserMapper> userMapperMock;
 
@@ -114,7 +114,7 @@ class UserServiceTest {
 
         when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
         userMapperMock.when(() -> UserMapper.toEntity(validRequest)).thenReturn(mappedEntity);
-        when(passwordEncoderPort.encode("secret123")).thenReturn("encoded-secret123");
+        when(passwordEncoder.encode("secret123")).thenReturn("encoded-secret123");
         when(userRepository.save(any(UserEntity.class))).thenReturn(savedEntity);
         userMapperMock.when(() -> UserMapper.toDTO(savedEntity)).thenReturn(expectedResponse);
         when(roleRepository.findByName("ROLE_CUSTOMER")).thenReturn(Optional.of(roleCustomer));
@@ -138,7 +138,7 @@ class UserServiceTest {
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("El nombre es obligatorio");
 
-        verifyNoInteractions(userRepository, passwordEncoderPort);
+        verifyNoInteractions(userRepository, passwordEncoder);
     }
 
     @ParameterizedTest
