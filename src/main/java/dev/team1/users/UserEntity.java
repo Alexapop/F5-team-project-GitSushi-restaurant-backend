@@ -52,8 +52,6 @@ public class UserEntity {
     @Column(nullable = false, unique = true)
     private String email;
 
-    // TODO (Sprint 2): will be hashed with BCryptPasswordEncoder once security work starts.
-    // For now stored as plain text via a no-op encoder (see PasswordEncoderPort).
     @Column(nullable = false)
     private String password;
 

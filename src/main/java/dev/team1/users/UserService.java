@@ -7,11 +7,11 @@ import dev.team1.products.ProductRepository;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
 import dev.team1.roles.RoleEntity;
 import dev.team1.roles.RoleRepository;
-import dev.team1.security.PasswordEncoderPort;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
 import jakarta.transaction.Transactional;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -27,12 +27,12 @@ public class UserService {
         Pattern.compile("^[\\w.+-]+@[\\w-]+\\.[a-zA-Z]{2,}$");
 
     private final UserRepository userRepository;
-    private final PasswordEncoderPort passwordEncoderPort;
+    private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
 
-    public UserService(UserRepository userRepository, PasswordEncoderPort passwordEncoderPort, RoleRepository roleRepository, ProductRepository productRepository) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, RoleRepository roleRepository, ProductRepository productRepository) {
         this.userRepository = userRepository;
-        this.passwordEncoderPort = passwordEncoderPort;
+        this.passwordEncoder = passwordEncoder;
         this.roleRepository = roleRepository;
         this.productRepository = productRepository;
     }
@@ -44,7 +44,7 @@ public class UserService {
         validateEmailNotTaken(requestDTO.getEmail());
 
         UserEntity newUser = UserMapper.toEntity(requestDTO);
-        newUser.setPassword(passwordEncoderPort.encode(newUser.getPassword()));
+        newUser.setPassword(passwordEncoder.encode(newUser.getPassword()));
         
         RoleEntity roleCustomer = roleRepository.findByName("ROLE_CUSTOMER")
             .orElseGet(() -> {

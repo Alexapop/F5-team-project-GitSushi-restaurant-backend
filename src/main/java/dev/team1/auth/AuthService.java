@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import dev.team1.auth.dtos.CredentialsDTO;
@@ -23,14 +24,14 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
 
     public UserResponseDTO login(CredentialsDTO credentials) {
         
         UserEntity user = userRepository.findByEmail(credentials.email())
             .orElseThrow(() -> new BadCredentialsException("User doesn't exist."));
 
-        // TODO check password correctly
-        if (!credentials.password().equals(user.getPassword())) {
+        if (!passwordEncoder.matches(credentials.password(), user.getPassword())) {
             throw new BadCredentialsException("Wrong password");
         } 
 
