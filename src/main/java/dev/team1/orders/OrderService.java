@@ -24,6 +24,7 @@ import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse;
 import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
 import dev.team1.orders.dtos.DeliveryMetricsDTOResponse;
+import dev.team1.orders.dtos.DeliveryConfirmationDTORequest;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.products.ProductEntity;
@@ -394,5 +395,29 @@ public class OrderService {
                 savedOrder.getPaymentMethod(),
                 savedOrder.getTable() == null ? null : savedOrder.getTable().getTableNumber(),
                 savedOrder.getPaymentStatus());
+    }
+        @Transactional
+    public OrderDTOResponse markAsDelivered(Long id, DeliveryConfirmationDTORequest request) {
+        OrderEntity order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Order not found: " + id));
+
+        if (order.getStatus() != OrderStatus.ONTHEWAY) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot mark as delivered from status: " + order.getStatus());
+        }
+
+        if (order.getPaymentMethod() == PaymentMethod.CASH_ON_DELIVERY
+                && !Boolean.TRUE.equals(request == null ? null : request.cashCollected())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Cash collection must be confirmed for cash-on-delivery orders");
+        }
+
+        order.setStatus(OrderStatus.DELIVERED);
+        order.setDeliveredAt(LocalDateTime.now());
+        OrderEntity savedOrder = orderRepository.save(order);
+        return toResponse(savedOrder);
     }
 }
