@@ -335,6 +335,51 @@ class OrderServiceTest {
 
     @ParameterizedTest
     @CsvSource({
+            "ONLINE_CARD, PENDING_ONLINE_PAYMENT",
+            "CASH_ON_DELIVERY, PENDING_CASH_ON_DELIVERY"
+    })
+    void createOnlineOrderSavesAndReturnsPendingPaymentStatus(
+            PaymentMethod paymentMethod, PaymentStatus expectedPaymentStatus) {
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product(null)));
+        when(orderRepository.save(any(OrderEntity.class)))
+                .thenAnswer(call -> call.getArgument(0));
+
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONLINE, paymentMethod);
+
+        OrderDTOResponse response = service.createOrder(request, null, null);
+
+        ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(captor.capture());
+        OrderEntity savedOrder = captor.getValue();
+
+        assertEquals(paymentMethod, savedOrder.getPaymentMethod());
+        assertEquals(expectedPaymentStatus, savedOrder.getPaymentStatus());
+        assertEquals(OrderStatus.PLACED, savedOrder.getStatus());
+        assertEquals(expectedPaymentStatus, response.paymentStatus());
+        assertEquals(OrderStatus.PLACED, response.status());
+    }
+
+    @Test
+    void markAsPaidClearsPendingOnlinePaymentStatus() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PLACED);
+        order.setChannel(OrderChannel.ONLINE);
+        order.setPaymentMethod(PaymentMethod.ONLINE_CARD);
+        order.setPaymentStatus(PaymentStatus.PENDING_ONLINE_PAYMENT);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        OrderDTOResponse response = service.markAsPaid(1L);
+
+        assertEquals(OrderStatus.PAID, response.status());
+        assertNull(order.getPaymentStatus());
+        assertNull(response.paymentStatus());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
             "CASH_ONSITE, PENDING_CASH",
             "CARD_ONSITE, PENDING_CARD_TERMINAL"
     })
@@ -799,6 +844,7 @@ class OrderServiceTest {
         OrderEntity order = new OrderEntity();
         order.setStatus(OrderStatus.ONTHEWAY);
         order.setPaymentMethod(PaymentMethod.CASH_ON_DELIVERY);
+        order.setPaymentStatus(PaymentStatus.PENDING_CASH_ON_DELIVERY);
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
         when(orderRepository.save(order)).thenReturn(order);
 
@@ -807,6 +853,8 @@ class OrderServiceTest {
 
         assertEquals(OrderStatus.DELIVERED, order.getStatus());
         assertEquals(OrderStatus.DELIVERED, response.status());
+        assertNull(order.getPaymentStatus());
+        assertNull(response.paymentStatus());
         verify(orderRepository).save(order);
     }
 
