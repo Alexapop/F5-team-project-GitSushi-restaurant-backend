@@ -9,7 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-
+import org.junit.jupiter.params.provider.MethodSource;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -286,7 +286,7 @@ class OrderServiceTest {
         order.setCreatedAt(LocalDateTime.now());
         order.setOrderProducts(new ArrayList<>());
 
-                List<OrderStatus> activeStatuses = List.of(
+        List<OrderStatus> activeStatuses = List.of(
                 OrderStatus.PLACED, OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.DELAYED);
         when(orderRepository.findByStatusIn(activeStatuses)).thenReturn(List.of(order));
 
@@ -329,7 +329,7 @@ class OrderServiceTest {
                 .order(order).product(product).quantity(new BigDecimal("3")).build();
         order.setOrderProducts(List.of(op));
 
-                when(orderRepository.findByStatusIn(
+        when(orderRepository.findByStatusIn(
                 List.of(OrderStatus.PLACED, OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.DELAYED)))
                 .thenReturn(List.of(order));
 
@@ -679,4 +679,70 @@ class OrderServiceTest {
 
         assertEquals(LocalDate.now().atStartOfDay(), sinceCaptor.getValue());
     }
+
+    static java.util.stream.Stream<
+        org.junit.jupiter.params.provider.Arguments> chefNoteCases() {
+
+    return java.util.stream.Stream.of(
+            org.junit.jupiter.params.provider.Arguments.of(
+                    "Sin wasabi", "Sin wasabi"),
+            org.junit.jupiter.params.provider.Arguments.of(
+                    null, null),
+            org.junit.jupiter.params.provider.Arguments.of(
+                    "", null),
+            org.junit.jupiter.params.provider.Arguments.of(
+                    "   ", null),
+            org.junit.jupiter.params.provider.Arguments.of(
+                    "<b>Sin wasabi</b>", "Sin wasabi"),
+            org.junit.jupiter.params.provider.Arguments.of(
+                    "<script>alert(1)</script>Sin wasabi", "Sin wasabi"),
+            org.junit.jupiter.params.provider.Arguments.of(
+                    "a".repeat(500), "a".repeat(500)));
+}
+
+@ParameterizedTest
+@MethodSource("chefNoteCases")
+void createOrderPreparesChefNote(String input, String expected) {
+    when(productRepository.findById(2L))
+            .thenReturn(Optional.of(product(null)));
+
+    when(orderRepository.save(any(OrderEntity.class)))
+            .thenAnswer(call -> call.getArgument(0));
+
+    OrderDTORequest request = new OrderDTORequest(
+            List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+            input,
+            OrderChannel.ONLINE,
+            PaymentMethod.ONLINE_CARD);
+
+    OrderDTOResponse response = service.createOrder(request, null, null);
+
+    ArgumentCaptor<OrderEntity> captor =
+            ArgumentCaptor.forClass(OrderEntity.class);
+
+    verify(orderRepository).save(captor.capture());
+
+    assertEquals(expected, captor.getValue().getChefNote());
+    assertEquals(expected, response.chefNote());
+}
+@Test
+void createOrderRejectsChefNoteLongerThan500Characters() {
+    OrderDTORequest request = new OrderDTORequest(
+            List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+            "a".repeat(501),
+            OrderChannel.ONLINE,
+            PaymentMethod.ONLINE_CARD);
+
+    ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> service.createOrder(request, null, null));
+
+    assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+
+    verifyNoInteractions(
+            orderRepository,
+            productRepository,
+            tableRepository,
+            userRepository);
+}
 }

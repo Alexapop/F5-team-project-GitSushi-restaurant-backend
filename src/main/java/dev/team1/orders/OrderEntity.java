@@ -58,7 +58,8 @@ public class OrderEntity {
 
     @Column(nullable = false, scale = 2)
     private BigDecimal total;
-
+    
+    @Column (length = 500, nullable = true)
     private String chefNote;
 
     @Enumerated(EnumType.STRING)
