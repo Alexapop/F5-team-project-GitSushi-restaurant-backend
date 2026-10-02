@@ -1,5 +1,7 @@
 package dev.team1.users;
 
+import dev.team1.contracts.IGenericEditService;
+import dev.team1.contracts.IGenericGetService;
 import dev.team1.mappers.UserMapper;
 import dev.team1.offers.OfferEntity;
 import dev.team1.products.ProductEntity;
@@ -9,17 +11,21 @@ import dev.team1.roles.RoleEntity;
 import dev.team1.roles.RoleRepository;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
-import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.regex.Pattern;
 
 @Service
-public class UserService {
+@RequiredArgsConstructor 
+public class UserService implements IGenericEditService<UserRequestDTO, UserPatchRequestDTO, UserResponseDTO> {
 
     private final ProductRepository productRepository;
 
@@ -30,15 +36,10 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, RoleRepository roleRepository, ProductRepository productRepository) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.roleRepository = roleRepository;
-        this.productRepository = productRepository;
-    }
 
+    @Override 
     @Transactional 
-    public UserResponseDTO registerUser(UserRequestDTO requestDTO) {
+    public UserResponseDTO store(UserRequestDTO requestDTO) {
         validateRequiredFields(requestDTO);
         validateEmailFormat(requestDTO.getEmail());
         validateEmailNotTaken(requestDTO.getEmail());
@@ -68,6 +69,14 @@ public class UserService {
         
         return UserMapper.toDTO(savedUser);
     }
+
+    @Transactional(readOnly = true)
+    public Page<UserResponseDTO> getAll(Pageable pageable) {
+        Page<UserEntity> pageEntity = userRepository.findAll(pageable);
+
+        return pageEntity.map(UserMapper::toDTO);
+    }
+
 
     private void validateRequiredFields(UserRequestDTO dto) {
         if (isBlank(dto.getFirstName())) {

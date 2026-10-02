@@ -26,13 +26,13 @@ public class UserController {
     }
 
     @GetMapping("") 
-    public ResponseEntity<Page<UserResponseDTO> index(Pageable pageable) {
+    public ResponseEntity<Page<UserResponseDTO>> index(Pageable pageable) {
         return ResponseEntity.ok(userService.getAll(pageable));
     }
 
     @PostMapping("")
     public ResponseEntity<UserResponseDTO> createUser(@RequestBody UserRequestDTO requestDTO) {
-        UserResponseDTO savedUser = userService.registerUser(requestDTO);
+        UserResponseDTO savedUser = userService.store(requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
     }
 
