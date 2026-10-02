@@ -1,6 +1,5 @@
 package dev.team1.contracts;
 
-import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -14,6 +13,5 @@ public interface IInvoiceService {
   PaidInvoiceDTOResponse findPaidById(Long id);
   Page<InvoiceDTOResponse> findAll(Pageable pageable);
   Page<PaidInvoiceDTOResponse> findPaid(Pageable pageable);
-  @Nullable
-  Object findPaid(String search, Pageable pageable);
+  Page<PaidInvoiceDTOResponse> findPaid(String search, Pageable pageable);
 }
