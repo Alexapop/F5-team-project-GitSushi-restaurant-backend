@@ -80,6 +80,7 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.POST, pre + "/payments/checkout").permitAll()
                 .requestMatchers(HttpMethod.POST, pre + "/payments/confirm").permitAll()
                 .requestMatchers(HttpMethod.PATCH, pre + "/orders/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_COOK", "ROLE_DELIVERYMAN")
+                .requestMatchers(HttpMethod.GET, pre + "/invoices").permitAll()
                 .requestMatchers(HttpMethod.GET, pre + "/invoices/paid").hasAnyAuthority("ROLE_ADMIN")
                 .requestMatchers(pre + "/auth/login").permitAll()
                 .requestMatchers(pre + "/auth/refresh").permitAll()
