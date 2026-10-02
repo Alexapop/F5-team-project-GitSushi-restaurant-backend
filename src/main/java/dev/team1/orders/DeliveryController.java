@@ -1,8 +1,10 @@
 package dev.team1.orders;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import dev.team1.auth.CustomUserDetails;
 import dev.team1.orders.dtos.DeliveryConfirmationDTORequest;
 import dev.team1.orders.dtos.DeliveryMetricsDTOResponse;
 import dev.team1.orders.dtos.OrderDTOResponse;
@@ -33,6 +36,14 @@ public class DeliveryController {
     @GetMapping("/orders/pending")
     public ResponseEntity<List<PendingDeliveryDTOResponse>> getPendingDeliveries() {
         return ResponseEntity.ok(orderService.getPendingDeliveries());
+    }
+
+    @PatchMapping("/orders/{id}/assign")
+    public ResponseEntity<OrderDTOResponse> assignDeliveryman(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        UUID deliverymanId = currentUser.user().getId();
+        return ResponseEntity.ok(orderService.assignDeliveryman(id, deliverymanId));
     }
 
     @PatchMapping("/orders/{id}/status")
