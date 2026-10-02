@@ -9,6 +9,7 @@ import dev.team1.products.ProductRepository;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
 import dev.team1.roles.RoleEntity;
 import dev.team1.roles.RoleRepository;
+import dev.team1.users.dtos.UserPatchRequestDTO;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
@@ -28,13 +29,12 @@ import java.util.regex.Pattern;
 public class UserService implements IGenericEditService<UserRequestDTO, UserPatchRequestDTO, UserResponseDTO> {
 
     private final ProductRepository productRepository;
-
-    private static final Pattern EMAIL_PATTERN =
-        Pattern.compile("^[\\w.+-]+@[\\w-]+\\.[a-zA-Z]{2,}$");
-
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
+
+    private static final Pattern EMAIL_PATTERN =
+        Pattern.compile("^[\\w.+-]+@[\\w-]+\\.[a-zA-Z]{2,}$");
 
 
     @Override 
