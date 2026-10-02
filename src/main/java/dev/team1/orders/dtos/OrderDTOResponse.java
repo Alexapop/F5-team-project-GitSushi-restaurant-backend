@@ -20,7 +20,9 @@ public record OrderDTOResponse(
         OrderChannel channel,
         PaymentMethod paymentMethod,
         Integer tableNumber,
-        PaymentStatus paymentStatus
+        PaymentStatus paymentStatus,
+        BigDecimal deliveryFee,
+        String ticketAccessToken
 
 ) {
 

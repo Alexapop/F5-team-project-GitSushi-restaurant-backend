@@ -35,17 +35,18 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import dev.team1.delivery.dtos.DeliveryAddressDTORequest;
+import dev.team1.delivery.dtos.DeliveryConfirmationDTORequest;
+import dev.team1.delivery.dtos.DeliveryMetricsDTOResponse;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
 import dev.team1.enums.PaymentStatus;
-import dev.team1.orders.dtos.KitchenOrderDTOResponse;
+import dev.team1.kitchen.dtos.KitchenMetricsDTOResponse;
+import dev.team1.kitchen.dtos.KitchenOrderDTOResponse;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.orders_products.OrderProductEntity;
-import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
-import dev.team1.orders.dtos.DeliveryMetricsDTOResponse;
-import dev.team1.orders.dtos.DeliveryConfirmationDTORequest;
 import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
 import dev.team1.tables.TableEntity;
@@ -138,7 +139,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
-                "No onions", OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE);
+                "No onions", OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE, null);
 
         OrderDTOResponse response = service.createOrder(request, "tablet-12", null);
 
@@ -167,7 +168,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
-                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
+                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE, null);
 
         OrderDTOResponse response = service.createOrder(request, "tablet-12", null);
 
@@ -221,7 +222,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, OrderChannel.ONLINE, PaymentMethod.CASH_ON_DELIVERY);
+                null, OrderChannel.ONLINE, PaymentMethod.CASH_ON_DELIVERY, deliveryAddress());
 
         OrderDTOResponse response = service.createOrder(request, null, null);
 
@@ -244,7 +245,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD);
+                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD, deliveryAddress());
 
         service.createOrder(request, null, userId);
 
@@ -259,7 +260,7 @@ class OrderServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD);
+                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD, deliveryAddress());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.createOrder(request, null, userId));
@@ -322,7 +323,7 @@ class OrderServiceTest {
 
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, OrderChannel.ONSITE, paymentMethod);
+                null, OrderChannel.ONSITE, paymentMethod, null);
 
         OrderDTOResponse response = service.createOrder(request, "tablet-12", null);
 
@@ -350,7 +351,7 @@ class OrderServiceTest {
 
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, OrderChannel.ONLINE, paymentMethod);
+                null, OrderChannel.ONLINE, paymentMethod, deliveryAddress());
 
         OrderDTOResponse response = service.createOrder(request, null, null);
 
@@ -419,7 +420,11 @@ class OrderServiceTest {
         when(productRepository.findById(2L)).thenReturn(Optional.of(product));
         return new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
+                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE, null);
+    }
+
+    private DeliveryAddressDTORequest deliveryAddress() {
+        return new DeliveryAddressDTORequest("Calle Mayor 1", "Madrid", "28001", "Tercer piso");
     }
 
     private TableEntity table(int tableNumber) {
@@ -678,7 +683,7 @@ class OrderServiceTest {
             OrderChannel channel, PaymentMethod paymentMethod) {
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, channel, paymentMethod);
+                null, channel, paymentMethod, null);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.createOrder(request, "tablet-12", null));
@@ -910,7 +915,7 @@ void createOrderPreparesChefNote(String input, String expected) {
             List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
             input,
             OrderChannel.ONLINE,
-            PaymentMethod.ONLINE_CARD);
+            PaymentMethod.ONLINE_CARD, deliveryAddress());
 
     OrderDTOResponse response = service.createOrder(request, null, null);
 
@@ -928,7 +933,7 @@ void createOrderRejectsChefNoteLongerThan500Characters() {
             List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
             "a".repeat(501),
             OrderChannel.ONLINE,
-            PaymentMethod.ONLINE_CARD);
+            PaymentMethod.ONLINE_CARD, deliveryAddress());
 
     ResponseStatusException exception = assertThrows(
             ResponseStatusException.class,
