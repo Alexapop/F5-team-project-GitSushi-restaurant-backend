@@ -20,11 +20,11 @@ import java.util.UUID;
 class UserControllerTest {
 
     private MockMvc mockMvc;
-    private UserService userService;
+    private UserServiceImpl userService;
 
     @BeforeEach
     void setUp() {
-        userService = mock(UserService.class);
+        userService = mock(UserServiceImpl.class);
         UserController controller = new UserController(userService);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .addPlaceholderValue("api-endpoint", "api/v1")

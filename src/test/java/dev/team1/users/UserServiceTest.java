@@ -57,7 +57,7 @@ class UserServiceTest {
     private MockedStatic<UserMapper> userMapperMock;
 
     @InjectMocks
-    private UserService userService;
+    private UserServiceImpl userService;
 
     private UserRequestDTO validRequest;
     private UserEntity mappedEntity;

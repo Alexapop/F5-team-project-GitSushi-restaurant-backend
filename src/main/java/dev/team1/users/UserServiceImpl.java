@@ -1,7 +1,6 @@
 package dev.team1.users;
 
-import dev.team1.contracts.IGenericEditService;
-import dev.team1.contracts.IGenericGetService;
+import dev.team1.contracts.IUserService;
 import dev.team1.mappers.UserMapper;
 import dev.team1.offers.OfferEntity;
 import dev.team1.products.ProductEntity;
@@ -22,11 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor 
-public class UserService implements IGenericEditService<UserRequestDTO, UserPatchRequestDTO, UserResponseDTO> {
+public class UserServiceImpl implements IUserService {
 
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
@@ -70,11 +70,18 @@ public class UserService implements IGenericEditService<UserRequestDTO, UserPatc
         return UserMapper.toDTO(savedUser);
     }
 
+    @Override 
     @Transactional(readOnly = true)
     public Page<UserResponseDTO> getAll(Pageable pageable) {
         Page<UserEntity> pageEntity = userRepository.findAll(pageable);
 
         return pageEntity.map(UserMapper::toDTO);
+    }
+
+    @Override 
+    @Transactional 
+    public UserResponseDTO update(UUID id, UserPatchRequestDTO dto) {
+
     }
 
 
