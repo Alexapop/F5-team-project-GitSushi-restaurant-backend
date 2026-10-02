@@ -27,6 +27,7 @@ import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
 import dev.team1.orders.dtos.DeliveryMetricsDTOResponse;
 import dev.team1.orders.dtos.DeliveryConfirmationDTORequest;
 import dev.team1.orders.dtos.PendingDeliveryDTOResponse;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.products.ProductEntity;
@@ -456,5 +457,39 @@ public class OrderService {
                         order.getId(),
                         order.getUser() == null ? null : order.getUser().getAddress()))
                 .toList();
+    }
+
+        @Transactional
+    public OrderDTOResponse assignDeliveryman(Long id, UUID deliverymanId) {
+        OrderEntity order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Order not found: " + id));
+
+        if (order.getStatus() != OrderStatus.READY || order.getChannel() != OrderChannel.ONLINE) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Order is not available for delivery assignment: " + order.getStatus());
+        }
+
+        if (order.getDeliveryman() != null) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Order is already assigned to a deliveryman");
+        }
+
+        UserEntity deliveryman = userRepository.findById(deliverymanId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user no longer exists"));
+
+        order.setDeliveryman(deliveryman);
+
+        try {
+            OrderEntity savedOrder = orderRepository.save(order);
+            return toResponse(savedOrder);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Order was just assigned to another deliveryman");
+        }
     }
 }
