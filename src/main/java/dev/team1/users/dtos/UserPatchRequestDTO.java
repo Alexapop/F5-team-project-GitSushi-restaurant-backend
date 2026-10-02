@@ -7,7 +7,8 @@ public record UserPatchRequestDTO(
     String address,
     String postalCode,
     String city,
-    String role
+    String role,
+    Boolean active
 ) {
 
 }

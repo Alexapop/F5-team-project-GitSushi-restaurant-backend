@@ -64,6 +64,8 @@ public class UserEntity {
     @Column(nullable = false)
     private String city;
 
+    private Boolean active = true;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "users_roles",

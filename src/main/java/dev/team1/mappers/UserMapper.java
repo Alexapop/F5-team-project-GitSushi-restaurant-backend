@@ -4,10 +4,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.springframework.stereotype.Component;
-
 import dev.team1.roles.RoleEntity;
-import dev.team1.roles.RoleRepository;
 import dev.team1.users.UserEntity;
 import dev.team1.users.dtos.UserPatchRequestDTO;
 import dev.team1.users.dtos.UserRequestDTO;
@@ -38,6 +35,7 @@ public class UserMapper {
             .postalCode(entity.getPostalCode())
             .address(entity.getAddress())
             .city(entity.getCity())
+            .active(entity.getActive())
             .roles(
                 entity.getRoles().stream()
                     .map(RoleEntity::getName)
@@ -59,6 +57,7 @@ public class UserMapper {
         if (dto.address() != null) entity.setAddress(dto.address());
         if (dto.postalCode() != null) entity.setPostalCode(dto.postalCode());
         if (dto.city() != null) entity.setCity(dto.city());
+        if (dto.active() != null) entity.setActive(dto.active());
         
         if (role != null) {
             Set<RoleEntity> roles = new HashSet<>();
