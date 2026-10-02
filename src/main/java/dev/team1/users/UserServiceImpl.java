@@ -94,9 +94,8 @@ public class UserServiceImpl implements IUserService {
 
     @Override 
     public void delete(UUID id) {
-        
+        userRepository.deleteById(id);
     }
-
 
     private void validateRequiredFields(UserRequestDTO dto) {
         if (isBlank(dto.getFirstName())) {
