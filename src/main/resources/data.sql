@@ -816,3 +816,6 @@ INSERT INTO products (
     'vino-tinto.png', 3.5, 
     0.0, TRUE, FALSE
 );
+
+-- Los INSERT de arriba no rellenan "active": los usuarios de prueba quedan activos.
+UPDATE users SET active = TRUE WHERE active IS NULL;

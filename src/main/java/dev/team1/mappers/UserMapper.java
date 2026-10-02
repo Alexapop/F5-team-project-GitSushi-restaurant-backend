@@ -35,7 +35,9 @@ public class UserMapper {
             .postalCode(entity.getPostalCode())
             .address(entity.getAddress())
             .city(entity.getCity())
-            .active(entity.getActive())
+            // Si "active" viene vacío (usuarios antiguos) se considera activo,
+            // igual que el valor por defecto de UserEntity.
+            .active(!Boolean.FALSE.equals(entity.getActive()))
             .roles(
                 entity.getRoles().stream()
                     .map(RoleEntity::getName)
