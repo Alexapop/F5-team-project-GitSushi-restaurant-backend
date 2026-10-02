@@ -83,7 +83,48 @@ public class InvoiceService implements IInvoiceService {
 
   @Override
   @Transactional(readOnly = true)
-  public PaidInvoiceDTOResponse findPaid(String search, Pageable pageable) {
-    
+  public Page<PaidInvoiceDTOResponse> findPaid(String search, Pageable pageable) {
+    String customerSearch = search == null ? null : search.trim();
+    if (customerSearch != null && customerSearch.isEmpty()) {
+      customerSearch = null;
+    }
+
+    Long invoiceId = parseLongOrNull(customerSearch);
+    Integer tableNumber = parseIntegerOrNull(customerSearch);
+
+    Page<InvoiceEntity> paidInvoices = invoiceRepository.searchPaidInvoices(
+        OrderStatus.PAID,
+        invoiceId,
+        tableNumber,
+        customerSearch,
+        pageable);
+
+    if (paidInvoices.getTotalElements() == 0) {
+      throw new InvoiceExceptionNotFound("Not paid invoices found.");
+    }
+
+    return paidInvoices.map(InvoiceMapper::toPaidDTO);
+  }
+
+  private Long parseLongOrNull(String value) {
+    if (value == null) {
+      return null;
+    }
+    try {
+      return Long.valueOf(value);
+    } catch (NumberFormatException exception) {
+      return null;
+    }
+  }
+
+  private Integer parseIntegerOrNull(String value) {
+    if (value == null) {
+      return null;
+    }
+    try {
+      return Integer.valueOf(value);
+    } catch (NumberFormatException exception) {
+      return null;
+    }
   }
 }
