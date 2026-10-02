@@ -17,4 +17,5 @@ public interface IUserService {
 
     public UserResponseDTO update(UUID id, UserPatchRequestDTO requestDTO);
 
+    public void delete(UUID id);
 }

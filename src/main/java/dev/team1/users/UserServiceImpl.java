@@ -92,6 +92,11 @@ public class UserServiceImpl implements IUserService {
         return UserMapper.toDTO(savedEntity);
     }
 
+    @Override 
+    public void delete(UUID id) {
+        
+    }
+
 
     private void validateRequiredFields(UserRequestDTO dto) {
         if (isBlank(dto.getFirstName())) {
