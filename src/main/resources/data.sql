@@ -12,7 +12,7 @@ INSERT INTO users (
     created_at
 ) VALUES (
     default, 'Siquis', 'Miquis',
-    'admin@gitsushi.com', 'admin123',
+    'admin@gitsushi.com', '$2a$10$DzBwWIXHwrA/G0m/.HiKXONFQG0oPWkWgydjFYtAmY/ZmwgED7acm',
     'España, Asturias', '58149', 'Oviedo',
     NOW()
 );
@@ -24,7 +24,7 @@ INSERT INTO users (
     created_at
 ) VALUES (
     default, 'Caquis', 'Paquis',
-    'customer@gitsushi.com', 'user1234',
+    'customer@gitsushi.com', '$2a$10$KFQqmrA8kxGuTAFZI3VIzehDAcHkVBNu47vh4fS73XwSTr52.YTlO',
     'España, Asturias', '58149', 'Oviedo',
     NOW()
 );
@@ -36,7 +36,7 @@ INSERT INTO users (
     created_at
 ) VALUES (
     default, 'Pipa', 'Shlipa',
-    'cook@gitsushi.com', 'cook1234',
+    'cook@gitsushi.com', '$2a$10$PP1LXKcRTtPdFgkHvZkFTuqNUXBWg9YF8bq4QGJabiCgy7JmNR/PC',
     'España, Asturias', '58149', 'Gijon',
     NOW()
 );
@@ -48,7 +48,7 @@ INSERT INTO users (
     created_at
 ) VALUES (
     default, 'Pupis', 'Mupis',
-    'delivery@gitsushi.com', 'delivery123',
+    'delivery@gitsushi.com', '$2a$10$oBSRXV7cxdejw1F6jKcmLuUqHlZSkVnNtr5HMiPYg0bXEQqkSM0IW',
     'España, Asturias', '58149', 'Aviles',
     NOW()
 );
