@@ -1,4 +1,4 @@
-package dev.team1.orders;
+package dev.team1.delivery;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -8,8 +8,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import dev.team1.orders.dtos.DeliveryConfirmationDTORequest;
-import dev.team1.orders.dtos.DeliveryMetricsDTOResponse;
+import dev.team1.delivery.dtos.DeliveryConfirmationDTORequest;
+import dev.team1.delivery.dtos.DeliveryMetricsDTOResponse;
+import dev.team1.orders.OrderService;
 import dev.team1.orders.dtos.OrderDTOResponse;
 
 @RestController

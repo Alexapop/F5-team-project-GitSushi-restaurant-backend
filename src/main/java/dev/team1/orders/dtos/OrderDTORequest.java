@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
 import java.util.List;
 
+import dev.team1.delivery.dtos.DeliveryAddressDTORequest;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.PaymentMethod;
 
@@ -16,7 +17,8 @@ public record OrderDTORequest(
                 @Size (max = 500 , message = "Chef note must not exceed 500 characters") 
                 String chefNote,
                 @NotNull OrderChannel channel,
-                @NotNull PaymentMethod paymentMethod) {
+                @NotNull PaymentMethod paymentMethod,
+                @Valid DeliveryAddressDTORequest deliveryAddress ) {//solo para pedido online
 
         // one ordered product and its quantity.
         public record OrderItemDTORequest(

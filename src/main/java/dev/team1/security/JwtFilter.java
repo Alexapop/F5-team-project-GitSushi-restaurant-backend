@@ -64,7 +64,9 @@ public class JwtFilter extends OncePerRequestFilter {
         boolean allowsOptionalAuthentication = HttpMethod.POST.name().equals(method)
                 && (uri.equals("/api/v1/orders")
                         || uri.equals("/api/v1/payments/checkout")
-                        || uri.equals("/api/v1/payments/confirm"));
+                        || uri.equals("/api/v1/payments/confirm"))
+        // GS-562: ticket visible para invitados con token y para usuarios autenticados
+                || (HttpMethod.GET.name().equals(method) && uri.startsWith("/api/v1/tickets/"));
 
         if (allowsOptionalAuthentication) {
             if (token != null && !token.isBlank()) {
