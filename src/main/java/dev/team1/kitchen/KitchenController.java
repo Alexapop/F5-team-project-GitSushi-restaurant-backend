@@ -1,4 +1,4 @@
-package dev.team1.orders;
+package dev.team1.kitchen;
 
 import java.util.List;
 
@@ -10,9 +10,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import dev.team1.orders.dtos.KitchenOrderDTOResponse;
-import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
-import dev.team1.orders.dtos.KitchenStatusUpdateDTORequest;
+import dev.team1.kitchen.dtos.KitchenMetricsDTOResponse;
+import dev.team1.kitchen.dtos.KitchenOrderDTOResponse;
+import dev.team1.kitchen.dtos.KitchenStatusUpdateDTORequest;
+import dev.team1.orders.OrderService;
 
 @RestController
 @RequestMapping(path = "${api-endpoint}/kitchen")

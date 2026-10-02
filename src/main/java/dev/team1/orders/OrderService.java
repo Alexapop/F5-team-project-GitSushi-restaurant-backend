@@ -16,22 +16,26 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import dev.team1.delivery.dtos.DeliveryAddressDTORequest;
+import dev.team1.delivery.dtos.DeliveryAddressDTOResponse;
+import dev.team1.delivery.dtos.DeliveryConfirmationDTORequest;
+import dev.team1.delivery.dtos.DeliveryMetricsDTOResponse;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
 import dev.team1.enums.PaymentStatus;
+import dev.team1.kitchen.dtos.KitchenMetricsDTOResponse;
+import dev.team1.kitchen.dtos.KitchenOrderDTOResponse;
+import dev.team1.kitchen.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
-import dev.team1.orders.dtos.KitchenOrderDTOResponse;
-import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
-import dev.team1.orders.dtos.DeliveryMetricsDTOResponse;
-import dev.team1.orders.dtos.DeliveryConfirmationDTORequest;
-import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
 import dev.team1.tables.TableEntity;
 import dev.team1.tables.TableRepository;
+import dev.team1.tickets.dtos.TicketDTOResponse;
+import dev.team1.tickets.dtos.TicketDTOResponse.TicketItemDTO;
 import dev.team1.users.UserEntity;
 import dev.team1.users.UserRepository;
 
@@ -40,6 +44,10 @@ public class OrderService {
 
     // Provisional business rule: product prices exclude VAT.
     private static final int VAT_RATE = 10;
+
+ // Provisional business rule: flat delivery fee for home delivery.
+    private static final BigDecimal DELIVERY_FEE = new BigDecimal("2.50");
+
     private static final int KITCHEN_TARGET_MINUTES = 15;
 
     private static final Map<OrderChannel, List<PaymentMethod>> ALLOWED_PAYMENT_METHODS = Map.of(
@@ -48,7 +56,9 @@ public class OrderService {
 
     private static final Map<PaymentMethod, PaymentStatus> PAYMENT_STATUS = Map.of(
             PaymentMethod.CASH_ONSITE, PaymentStatus.PENDING_CASH,
-            PaymentMethod.CARD_ONSITE, PaymentStatus.PENDING_CARD_TERMINAL);
+            PaymentMethod.CARD_ONSITE, PaymentStatus.PENDING_CARD_TERMINAL,
+            PaymentMethod.ONLINE_CARD, PaymentStatus.PENDING_ONLINE_PAYMENT,
+            PaymentMethod.CASH_ON_DELIVERY, PaymentStatus.PENDING_CASH_ON_DELIVERY);
 
     private final OrderRepository orderRepository;
     private final ProductRepository productsRepository;
@@ -71,6 +81,7 @@ public class OrderService {
             String deviceIdentifier,
             UUID userId) {
         validatePaymentMethod(request.channel(), request.paymentMethod());
+        validateDeliveryAddress(request.channel(), request.deliveryAddress());
         String chefNote = prepareChefNote(request.chefNote());
 
         OrderEntity order = new OrderEntity();
@@ -98,6 +109,8 @@ public class OrderService {
                     .product(product)
                     .quantity(quantity)
                     .build();
+            op.setUnitPrice(product.getPrice());
+
             ops.add(op);
 
             BigDecimal productSubtotal = product.getPrice().multiply(quantity)
@@ -114,7 +127,9 @@ public class OrderService {
         BigDecimal subtotalAfterDiscount = subtotal.subtract(discountAmount);
         BigDecimal vatAmount = subtotalAfterDiscount.multiply(BigDecimal.valueOf(VAT_RATE))
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        BigDecimal total = subtotalAfterDiscount.add(vatAmount);
+        BigDecimal deliveryFee = request.channel() == OrderChannel.ONLINE ? DELIVERY_FEE : BigDecimal.ZERO;
+        BigDecimal total = subtotalAfterDiscount.add(vatAmount).add(deliveryFee);
+
 
         // 3. Save the order and return its data.
 
@@ -132,6 +147,10 @@ public class OrderService {
         order.setPaymentStatus(PAYMENT_STATUS.get(request.paymentMethod()));
         order.setStatus(OrderStatus.PLACED);
         order.setTable(resolveTable(request.channel(), deviceIdentifier));
+        order.setDeliveryFee(deliveryFee);
+        order.setTicketAccessToken(UUID.randomUUID().toString());
+        setDeliveryAddress(order, request.deliveryAddress());
+
 
         OrderEntity savedOrder = orderRepository.save(order);
         return toResponse(savedOrder);
@@ -164,6 +183,78 @@ public class OrderService {
         return ALLOWED_PAYMENT_METHODS.get(channel);
     }
 
+   private void validateDeliveryAddress (OrderChannel channel, DeliveryAddressDTORequest address){
+        if (channel == OrderChannel.ONLINE && address == null){
+            throw new ResponseStatusException(
+                 HttpStatus.BAD_REQUEST, "Delivery address is required for online orders");
+                
+        }
+   }
+   private void setDeliveryAddress (OrderEntity order, DeliveryAddressDTORequest address){
+        if (order.getChannel() != OrderChannel.ONLINE){
+                return;
+        }
+        order.setDeliveryStreet(address.deliveryStreet().strip());
+        order.setDeliveryCity(address.deliveryCity().strip());
+        order.setDeliveryPostalCode(address.deliveryPostalCode().strip());
+        String deliveryInstructions = address.deliveryInstructions();
+        order.setDeliveryInstructions(deliveryInstructions == null || deliveryInstructions.isBlank() ? null : deliveryInstructions.strip());
+   }
+
+    // GS-562: ticket del pedido. Lo ve el admin, el usuario dueño o el invitado con su token.
+    @Transactional(readOnly = true)
+    public TicketDTOResponse getTicket(Long id, UUID userId, boolean isAdmin, String token) {
+        OrderEntity order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Order not found: " + id));
+
+        boolean isOwner = userId != null && order.getUser() != null
+                && order.getUser().getId().equals(userId);
+        boolean hasValidToken = token != null && token.equals(order.getTicketAccessToken());
+
+        if (!isAdmin && !isOwner && !hasValidToken) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "You are not allowed to see this ticket");
+        }
+
+        return toTicketResponse(order);
+    }
+
+    private TicketDTOResponse toTicketResponse(OrderEntity order) {
+        List<TicketItemDTO> items = order.getOrderProducts().stream()
+                .map(op -> new TicketItemDTO(
+                        op.getProduct().getName(),
+                        op.getQuantity(),
+                        op.getUnitPrice(),
+                        op.getUnitPrice().multiply(op.getQuantity()).setScale(2, RoundingMode.HALF_UP)))
+                .toList();
+
+        DeliveryAddressDTOResponse deliveryAddress = order.getChannel() == OrderChannel.ONLINE
+                ? new DeliveryAddressDTOResponse(
+                        order.getDeliveryStreet(),
+                        order.getDeliveryCity(),
+                        order.getDeliveryPostalCode(),
+                        order.getDeliveryInstructions())
+                : null;
+
+        return new TicketDTOResponse(
+                order.getId(),
+                order.getStatus(),
+                order.getChannel(),
+                order.getTable() == null ? null : order.getTable().getTableNumber(),
+                order.getCreatedAt(),
+                order.getPaidAt(),
+                items,
+                order.getSubtotal(),
+                order.getDiscountAmount(),
+                order.getVatRate(),
+                order.getVatAmount(),
+                order.getDeliveryFee(),
+                order.getTotal(),
+                order.getPaymentMethod(),
+                order.getPaymentStatus(),
+                deliveryAddress);
+    }
     private void validatePaymentMethod(OrderChannel channel, PaymentMethod paymentMethod) {
         if (!ALLOWED_PAYMENT_METHODS.get(channel).contains(paymentMethod)) {
             throw new ResponseStatusException(
@@ -237,6 +328,7 @@ public class OrderService {
 
         order.setStatus(OrderStatus.PAID);
         order.setPaymentStatus(null);
+        order.setPaidAt(LocalDateTime.now());
         OrderEntity savedOrder = orderRepository.save(order);
         return toResponse(savedOrder);
     }
@@ -343,14 +435,24 @@ public class OrderService {
 
         boolean isDelayed = isOrderDelayed(order);
 
+        String chefNote = order.getChefNote();
+        boolean hasPriorityNote = false;
+
+        if (chefNote != null && !chefNote.isBlank()) {
+            hasPriorityNote = true;
+        } else {
+            chefNote = null;
+        }
+
         return new KitchenOrderDTOResponse(
                 order.getId(),
                 order.getStatus(),
-                order.getChefNote(),
+                chefNote,
                 order.getCreatedAt(),
                 isDelayed,
                 items,
-                order.getPaymentStatus());
+                order.getPaymentStatus(),
+                hasPriorityNote);
     }
 
     private boolean isOrderDelayed(OrderEntity order) {
@@ -419,7 +521,9 @@ public class OrderService {
                 savedOrder.getChannel(),
                 savedOrder.getPaymentMethod(),
                 savedOrder.getTable() == null ? null : savedOrder.getTable().getTableNumber(),
-                savedOrder.getPaymentStatus());
+                savedOrder.getPaymentStatus(),
+                savedOrder.getDeliveryFee(),
+                savedOrder.getTicketAccessToken());
     }
         @Transactional
     public OrderDTOResponse markAsDelivered(Long id, DeliveryConfirmationDTORequest request) {
@@ -442,6 +546,9 @@ public class OrderService {
 
         order.setStatus(OrderStatus.DELIVERED);
         order.setDeliveredAt(LocalDateTime.now());
+        if (order.getPaymentMethod() == PaymentMethod.CASH_ON_DELIVERY) {
+            order.setPaymentStatus(null); // el repartidor ya ha cobrado
+        }
         OrderEntity savedOrder = orderRepository.save(order);
         return toResponse(savedOrder);
     }

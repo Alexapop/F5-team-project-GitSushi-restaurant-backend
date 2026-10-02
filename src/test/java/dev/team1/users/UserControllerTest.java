@@ -20,11 +20,11 @@ import java.util.UUID;
 class UserControllerTest {
 
     private MockMvc mockMvc;
-    private UserService userService;
+    private UserServiceImpl userService;
 
     @BeforeEach
     void setUp() {
-        userService = mock(UserService.class);
+        userService = mock(UserServiceImpl.class);
         UserController controller = new UserController(userService);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .addPlaceholderValue("api-endpoint", "api/v1")
@@ -54,7 +54,7 @@ class UserControllerTest {
             .email("ahmet@example.com")
             .build();
 
-        when(userService.registerUser(any(UserRequestDTO.class))).thenReturn(savedUser);
+        when(userService.store(any(UserRequestDTO.class))).thenReturn(savedUser);
 
         mockMvc.perform(post("/api/v1/users")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -66,7 +66,7 @@ class UserControllerTest {
 
     @Test
     void createUser_withBlankFirstName_returns400() throws Exception {
-        when(userService.registerUser(any(UserRequestDTO.class)))
+        when(userService.store(any(UserRequestDTO.class)))
             .thenThrow(new IllegalArgumentException("El nombre es obligatorio"));
 
         mockMvc.perform(post("/api/v1/users")
@@ -77,7 +77,7 @@ class UserControllerTest {
 
     @Test
     void createUser_withDuplicateEmail_returns400() throws Exception {
-        when(userService.registerUser(any(UserRequestDTO.class)))
+        when(userService.store(any(UserRequestDTO.class)))
             .thenThrow(new IllegalArgumentException("Ya existe una cuenta con este email"));
 
         mockMvc.perform(post("/api/v1/users")

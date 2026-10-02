@@ -74,7 +74,7 @@ class OrderControllerTest {
         void createOrderReturnsCreatedOrder() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
-                                "No onions", OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE);
+                                "No onions", OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE, null);
                 when(service.createOrder(request, "tablet-12", null)).thenReturn(response(OrderStatus.PLACED));
 
         mockMvc.perform(post("/api/v1/orders")
@@ -100,7 +100,7 @@ class OrderControllerTest {
         void createOrderPassesDeviceIdentifierToService() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
+                                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE, null);
                 when(service.createOrder(request, "tablet-7", null)).thenReturn(response(OrderStatus.PLACED));
 
         mockMvc.perform(post("/api/v1/orders")
@@ -119,7 +119,7 @@ class OrderControllerTest {
         void createOnlineOrderPassesMissingDeviceIdentifierToService() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD);
+                                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD, null);
                 when(service.createOrder(request, null, null)).thenReturn(response(OrderStatus.PLACED));
 
         mockMvc.perform(post("/api/v1/orders")
@@ -141,7 +141,7 @@ class OrderControllerTest {
                 customer.setEmail("customer@example.com");
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD);
+                                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD, null);
                 when(service.createOrder(request, null, userId)).thenReturn(response(OrderStatus.PLACED));
 
                 mockMvc.perform(post("/api/v1/orders")
@@ -161,7 +161,7 @@ class OrderControllerTest {
         void createOnsiteOrderReturnsBadRequestWhenDeviceIdentifierIsMissing() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
+                                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE, null);
                 when(service.createOrder(request, null, null)).thenThrow(new ResponseStatusException(
                                 org.springframework.http.HttpStatus.BAD_REQUEST, "Device identifier is required"));
 
@@ -181,7 +181,7 @@ class OrderControllerTest {
         void createOnsiteOrderReturnsNotFoundWhenDeviceIsUnknown() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
+                                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE, null);
                 when(service.createOrder(request, "unknown-device", null)).thenThrow(new ResponseStatusException(
                                 org.springframework.http.HttpStatus.NOT_FOUND, "No table found for the given device."));
 
@@ -295,7 +295,9 @@ class OrderControllerTest {
                                 OrderChannel.ONSITE,
                                 PaymentMethod.CARD_ONSITE,
                                 12,
-                                paymentStatus);
+                                paymentStatus,
+                                null,
+                                "ticket-token");
         }
         @Test
     void createOrderRejectsChefNoteLongerThan500Characters() throws Exception {

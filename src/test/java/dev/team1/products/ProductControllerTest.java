@@ -172,7 +172,9 @@ public class ProductControllerTest {
         String json = mapper.writeValueAsString(mockPage);
 
         when(service.getAll(pageable)).thenReturn(mockPage);
-        // TODO: For ROLE_ADMIN only check
+        
+        // For ROLE_ADMIN only check
+
         MockHttpServletResponse response = mockMvc.perform(get("/api/v1/products/administration"))
             .andExpect(status().isOk())
             .andReturn()

@@ -6,9 +6,13 @@ import java.util.Objects;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
 @Embeddable 
 @NoArgsConstructor 
+@AllArgsConstructor
+@Getter 
 public class OrderProductId implements Serializable {
 
     @Column(name = "order_id")

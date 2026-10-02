@@ -1,4 +1,4 @@
-package dev.team1.orders.dtos;
+package dev.team1.kitchen.dtos;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -14,7 +14,8 @@ public record KitchenOrderDTOResponse(
         LocalDateTime createdAt,
         boolean isDelayed,
         List<KitchenOrderItemDTO> items,
-        PaymentStatus paymentStatus
+        PaymentStatus paymentStatus,
+        boolean hasPriorityNote
 ) {
     public record KitchenOrderItemDTO(
             String productName,

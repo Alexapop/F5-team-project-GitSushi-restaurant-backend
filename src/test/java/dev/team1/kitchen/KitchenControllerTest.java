@@ -1,4 +1,4 @@
-package dev.team1.orders;
+package dev.team1.kitchen;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,13 +22,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
 import dev.team1.enums.OrderStatus;
-import dev.team1.orders.dtos.KitchenOrderDTOResponse;
-import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
-
+import dev.team1.kitchen.dtos.KitchenMetricsDTOResponse;
+import dev.team1.kitchen.dtos.KitchenOrderDTOResponse;
+import dev.team1.kitchen.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.security.JwtFilter;
 import dev.team1.security.SecurityConfiguration;
-import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
-
+import dev.team1.orders.OrderService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
@@ -74,7 +73,9 @@ class KitchenControllerTest {
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].status").value("PROCESSING"))
-                .andExpect(jsonPath("$[0].isDelayed").value(false));
+                .andExpect(jsonPath("$[0].isDelayed").value(false))
+                .andExpect(jsonPath("$[0].chefNote").value("No onions"))
+                .andExpect(jsonPath("$[0].hasPriorityNote").value(true));
         verify(service).getActiveKitchenOrders();
     }
 
@@ -129,7 +130,9 @@ class KitchenControllerTest {
                                 {"status":"READY"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("READY"));
+                .andExpect(jsonPath("$.status").value("READY"))
+                .andExpect(jsonPath("$.chefNote").value("No onions"))
+                .andExpect(jsonPath("$.hasPriorityNote").value(true));
         verify(service).updateKitchenStatus(1L, OrderStatus.READY);
     }
 
@@ -166,9 +169,60 @@ class KitchenControllerTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @WithMockUser(roles = "COOK")
+    void getActiveOrdersReturnsNoPriorityForMissingNote() throws Exception {
+        KitchenOrderDTOResponse response = new KitchenOrderDTOResponse(
+                1L, OrderStatus.PROCESSING, null, LocalDateTime.now(),
+                false, List.of(), null, false);
+        when(service.getActiveKitchenOrders()).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/kitchen/orders"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].chefNote").isEmpty())
+                .andExpect(jsonPath("$[0].hasPriorityNote").value(false));
+    }
+
+    @Test
+    @WithMockUser(roles = "CUSTOMER")
+    void getActiveOrdersReturnsForbiddenForCustomer() throws Exception {
+        mockMvc.perform(get("/api/v1/kitchen/orders"))
+                .andExpect(status().isForbidden());
+
+        org.mockito.Mockito.verifyNoInteractions(service);
+    }
+
+    @Test
+    @WithMockUser(roles = "CUSTOMER")
+    void updateStatusReturnsForbiddenForCustomer() throws Exception {
+        mockMvc.perform(patch("/api/v1/kitchen/orders/1/status")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"READY"}
+                                """))
+                .andExpect(status().isForbidden());
+
+        org.mockito.Mockito.verifyNoInteractions(service);
+    }
+
+    @Test
+    @WithMockUser(roles = "COOK")
+    void updateStatusReturnsBadRequestForUnknownStatus() throws Exception {
+        mockMvc.perform(patch("/api/v1/kitchen/orders/1/status")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"INVALID"}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        org.mockito.Mockito.verifyNoInteractions(service);
+    }
+
     private KitchenOrderDTOResponse kitchenResponse(OrderStatus status, boolean isDelayed) {
         return new KitchenOrderDTOResponse(
                 1L, status, "No onions", LocalDateTime.now(), isDelayed,
-                List.of(new KitchenOrderItemDTO("Sushi", new BigDecimal("2"))), null);
+                List.of(new KitchenOrderItemDTO("Sushi", new BigDecimal("2"))), null, true);
     }
 }
