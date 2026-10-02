@@ -34,6 +34,10 @@ public class UserController {
         return ResponseEntity.ok(userService.getAll(pageable));
     }
 
+    @PatchMapping("{id}")
+    public ResponseEntity<UserResponseDTO> update(@PathVariable UUID id, @RequestBody UserPatchRequestDTO dto) {
+        return ResponseEntity.ok(userService.update(id, dto));
+    }
 
     @PostMapping("")
     public ResponseEntity<UserResponseDTO> createUser(@RequestBody UserRequestDTO requestDTO) {
