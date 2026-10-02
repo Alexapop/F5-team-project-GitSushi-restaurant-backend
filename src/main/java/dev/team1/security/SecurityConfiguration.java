@@ -15,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
@@ -63,12 +64,13 @@ public class SecurityConfiguration {
 
             .httpBasic(AbstractHttpConfigurer::disable)
             
-                        // El login no exige token CSRF: en el primer intento el navegador aún no
-            // tiene la cookie XSRF-TOKEN. La respuesta del login ya la crea.
             .csrf(csrf -> csrf
                 .csrfTokenRepository(csrfRepo)
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                .ignoringRequestMatchers(pre + "/auth/login"))
+                .ignoringRequestMatchers(pre + "/auth/login")
+                // Con JWT cada petición "autentica" de nuevo: sin esto Spring borra
+                // la cookie XSRF-TOKEN en cada petición con sesión y los PATCH/POST dan 403.
+                .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy()))
             .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
             
             .authorizeHttpRequests(auth -> auth
