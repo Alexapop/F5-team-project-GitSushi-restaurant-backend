@@ -50,15 +50,23 @@ public class InvoiceService implements IInvoiceService {
   @Override
   @Transactional(readOnly = true)
   public Page<InvoiceDTOResponse> findAll(Pageable pageable) {
-    return invoiceRepository.findAll(pageable)
-      .map(InvoiceMapper::toDTO);
+    Page<InvoiceEntity> invoices = invoiceRepository.findAll(pageable);
+    if (invoices.getTotalElements() == 0) {
+      throw new InvoiceExceptionNotFound("Not invoices found.");
+    }
+
+    return invoices.map(InvoiceMapper::toDTO);
   }
 
   @Override
   @Transactional(readOnly = true)
   public Page<PaidInvoiceDTOResponse> findPaid(Pageable pageable) {
-    return invoiceRepository
-      .findByOrder_Status(OrderStatus.PAID, pageable)
-      .map(InvoiceMapper::toPaidDTO);
+    Page<InvoiceEntity> paidInvoices = invoiceRepository
+      .findByOrder_Status(OrderStatus.PAID, pageable);
+    if (paidInvoices.getTotalElements() == 0) {
+      throw new InvoiceExceptionNotFound("Not paid invoices found.");
+    }
+
+    return paidInvoices.map(InvoiceMapper::toPaidDTO);
   }
 }
