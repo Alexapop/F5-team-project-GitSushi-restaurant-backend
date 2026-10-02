@@ -154,10 +154,10 @@ class DeliveryControllerTest {
         role.setName("ROLE_DELIVERYMAN");
         deliveryman.setRoles(Set.of(role));
 
-        when(service.assignDeliveryman(1L, deliverymanId))
+                when(service.assignDeliveryman(1L, deliverymanId))
                 .thenReturn(new dev.team1.orders.dtos.OrderDTOResponse(
                         1L, null, null, null, null, null, null, null,
-                        OrderStatus.READY, null, null, null, null));
+                        OrderStatus.READY, null, null, null, null, null, null));
 
         mockMvc.perform(patch("/api/v1/delivery/orders/1/assign")
                         .secure(true)
