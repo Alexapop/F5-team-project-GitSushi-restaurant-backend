@@ -63,9 +63,12 @@ public class SecurityConfiguration {
 
             .httpBasic(AbstractHttpConfigurer::disable)
             
+                        // El login no exige token CSRF: en el primer intento el navegador aún no
+            // tiene la cookie XSRF-TOKEN. La respuesta del login ya la crea.
             .csrf(csrf -> csrf
                 .csrfTokenRepository(csrfRepo)
-                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                .ignoringRequestMatchers(pre + "/auth/login"))
             .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
             
             .authorizeHttpRequests(auth -> auth

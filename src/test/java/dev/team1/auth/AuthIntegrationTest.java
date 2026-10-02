@@ -85,6 +85,19 @@ class AuthIntegrationTest {
             .andExpect(jsonPath("$.email").value("login-test@test.com"));
     }
 
+         @Test
+    void login_withoutCsrfToken_returns200() throws Exception {
+        String body = """
+            {"email":"login-test@test.com","password":"correct-password"}
+            """;
+
+        mockMvc.perform(post(apiEndpoint + "/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isOk())
+            .andExpect(cookie().exists("access_token"));
+    }
+
     @Test
     void login_withWrongPassword_returnsUnauthorized() throws Exception {
         String body = """
