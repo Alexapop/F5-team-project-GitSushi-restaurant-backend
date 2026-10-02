@@ -21,13 +21,14 @@ public interface InvoiceRepository extends JpaRepository<InvoiceEntity, Long> {
 
   Page<InvoiceEntity> findByOrder_Status(OrderStatus status, Pageable pageable);
 
+  // Una factura solo existe si el pedido está pagado, así que no se filtra
+  // por el estado del pedido (cambia a PROCESSING, READY, DELIVERED...).
   @Query("""
         SELECT i FROM InvoiceEntity i
-        JOIN i.order o
+        LEFT JOIN i.order o
         LEFT JOIN o.user u
         LEFT JOIN o.table t
-        WHERE o.status = :status
-        AND (
+        WHERE (
           (:invoiceId IS NULL AND :tableNumber IS NULL AND :customerSearch IS NULL)
           OR (:invoiceId IS NOT NULL AND i.id = :invoiceId)
           OR (:tableNumber IS NOT NULL AND t.tableNumber = :tableNumber)
@@ -39,7 +40,6 @@ public interface InvoiceRepository extends JpaRepository<InvoiceEntity, Long> {
         )
   """)
   Page<InvoiceEntity> searchPaidInvoices(
-      @Param("status") OrderStatus status,
       @Param("invoiceId") Long invoiceId,
       @Param("tableNumber") Integer tableNumber,
       @Param("customerSearch") String customerSearch,

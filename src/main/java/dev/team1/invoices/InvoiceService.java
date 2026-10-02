@@ -92,16 +92,12 @@ public class InvoiceService implements IInvoiceService {
     Long invoiceId = parseLongOrNull(customerSearch);
     Integer tableNumber = parseIntegerOrNull(customerSearch);
 
+    // Sin resultados se devuelve la página vacía: no es un error.
     Page<InvoiceEntity> paidInvoices = invoiceRepository.searchPaidInvoices(
-        OrderStatus.PAID,
         invoiceId,
         tableNumber,
         customerSearch,
         pageable);
-
-    if (paidInvoices.getTotalElements() == 0) {
-      throw new InvoiceExceptionNotFound("Not paid invoices found.");
-    }
 
     return paidInvoices.map(InvoiceMapper::toPaidDTO);
   }
