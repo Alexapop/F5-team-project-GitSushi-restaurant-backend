@@ -26,6 +26,7 @@ import dev.team1.orders.dtos.KitchenOrderDTOResponse;
 import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
 import dev.team1.orders.dtos.DeliveryMetricsDTOResponse;
 import dev.team1.orders.dtos.DeliveryConfirmationDTORequest;
+import dev.team1.orders.dtos.PendingDeliveryDTOResponse;
 import dev.team1.orders.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.products.ProductEntity;
@@ -444,5 +445,16 @@ public class OrderService {
         order.setDeliveredAt(LocalDateTime.now());
         OrderEntity savedOrder = orderRepository.save(order);
         return toResponse(savedOrder);
+    }
+        @Transactional(readOnly = true)
+    public List<PendingDeliveryDTOResponse> getPendingDeliveries() {
+        List<OrderEntity> orders = orderRepository
+                .findByStatusAndChannelAndDeliverymanIsNull(OrderStatus.READY, OrderChannel.ONLINE);
+
+        return orders.stream()
+                .map(order -> new PendingDeliveryDTOResponse(
+                        order.getId(),
+                        order.getUser() == null ? null : order.getUser().getAddress()))
+                .toList();
     }
 }
