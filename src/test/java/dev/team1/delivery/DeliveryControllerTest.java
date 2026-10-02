@@ -89,7 +89,7 @@ class DeliveryControllerTest {
         when(service.markAsDelivered(eq(1L), any()))
                 .thenReturn(new dev.team1.orders.dtos.OrderDTOResponse(
                         1L, null, null, null, null, null, null, null,
-                        OrderStatus.DELIVERED, null, null, null, null));
+                        OrderStatus.DELIVERED, null, null, null, null, null, null));
 
         mockMvc.perform(patch("/api/v1/delivery/orders/1/status")
                         .secure(true)
