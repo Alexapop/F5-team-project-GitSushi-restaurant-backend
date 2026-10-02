@@ -8,12 +8,13 @@ import lombok.Builder;
 @Builder 
 public record UserResponseDTO(
     UUID id,
+    String email,
     String firstName,
     String lastName,
-    String email,
     String address,
     String postalCode,
     String city,
-    List<String> roles
+    List<String> roles,
+    boolean active
 ) {
 }

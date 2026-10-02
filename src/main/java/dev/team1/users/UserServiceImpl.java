@@ -1,5 +1,6 @@
 package dev.team1.users;
 
+import dev.team1.contracts.IUserService;
 import dev.team1.mappers.UserMapper;
 import dev.team1.offers.OfferEntity;
 import dev.team1.products.ProductEntity;
@@ -7,38 +8,40 @@ import dev.team1.products.ProductRepository;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
 import dev.team1.roles.RoleEntity;
 import dev.team1.roles.RoleRepository;
+import dev.team1.users.dtos.UserPatchRequestDTO;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
-import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
-public class UserService {
+@RequiredArgsConstructor 
+public class UserServiceImpl implements IUserService {
 
     private final ProductRepository productRepository;
-
-    private static final Pattern EMAIL_PATTERN =
-        Pattern.compile("^[\\w.+-]+@[\\w-]+\\.[a-zA-Z]{2,}$");
-
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, RoleRepository roleRepository, ProductRepository productRepository) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.roleRepository = roleRepository;
-        this.productRepository = productRepository;
-    }
+    private static final Pattern EMAIL_PATTERN =
+        Pattern.compile("^[\\w.+-]+@[\\w-]+\\.[a-zA-Z]{2,}$");
 
+
+    @Override 
     @Transactional 
-    public UserResponseDTO registerUser(UserRequestDTO requestDTO) {
+    public UserResponseDTO store(UserRequestDTO requestDTO) {
         validateRequiredFields(requestDTO);
         validateEmailFormat(requestDTO.getEmail());
         validateEmailNotTaken(requestDTO.getEmail());
@@ -67,6 +70,31 @@ public class UserService {
         UserEntity savedUser = userRepository.save(newUser);
         
         return UserMapper.toDTO(savedUser);
+    }
+
+    @Override 
+    @Transactional(readOnly = true)
+    public Page<UserResponseDTO> getAll(Pageable pageable) {
+        Page<UserEntity> pageEntity = userRepository.findAll(pageable);
+
+        return pageEntity.map(UserMapper::toDTO);
+    }
+
+    @Override 
+    @Transactional 
+    public UserResponseDTO update(UUID id, UserPatchRequestDTO requestDto) {
+        UserEntity originalEntity = userRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        RoleEntity newRole = findNewRole(requestDto.role());
+        UserEntity updatedEntity = UserMapper.updateEntity(originalEntity, requestDto, newRole);
+        UserEntity savedEntity = userRepository.save(updatedEntity);
+        return UserMapper.toDTO(savedEntity);
+    }
+
+    @Override 
+    public void delete(UUID id) {
+        userRepository.deleteById(id);
     }
 
     private void validateRequiredFields(UserRequestDTO dto) {
@@ -121,6 +149,17 @@ public class UserService {
             .discountRate(discountRate)
             .user(user)
             .build();
+    }
+
+    private RoleEntity findNewRole(String dtoName) {
+        String name;
+        if (!dtoName.startsWith("ROLE_")) {
+            name = "ROLE_" + dtoName;
+        } else {
+            name = dtoName;
+        }
+        return roleRepository.findByName(name)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role '" + name + "' not found!"));
     }
 
 }
