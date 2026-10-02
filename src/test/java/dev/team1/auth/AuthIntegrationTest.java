@@ -56,7 +56,7 @@ class AuthIntegrationTest {
 
         user = new UserEntity();
         user.setEmail("login-test@test.com");
-        user.setPassword("correct-password"); // TODO: change with Hash when we will implement BCryptPasswordEncoder
+        user.setPassword("correct-password"); // change with Hash when we will implement BCryptPasswordEncoder
         user.setFirstName("Test");
         user.setLastName("User");
         user.setAddress("Test address");

@@ -29,7 +29,7 @@ public class AuthService {
         UserEntity user = userRepository.findByEmail(credentials.email())
             .orElseThrow(() -> new BadCredentialsException("User doesn't exist."));
 
-        // TODO check password correctly
+        // check password correctly
         if (!credentials.password().equals(user.getPassword())) {
             throw new BadCredentialsException("Wrong password");
         } 

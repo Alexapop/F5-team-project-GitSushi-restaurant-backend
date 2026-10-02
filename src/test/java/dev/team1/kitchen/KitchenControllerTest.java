@@ -22,7 +22,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
 import dev.team1.enums.OrderStatus;
-import dev.team1.kitchen.KitchenController;
 import dev.team1.kitchen.dtos.KitchenMetricsDTOResponse;
 import dev.team1.kitchen.dtos.KitchenOrderDTOResponse;
 import dev.team1.kitchen.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
