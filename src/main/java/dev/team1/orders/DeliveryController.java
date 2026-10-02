@@ -1,5 +1,7 @@
 package dev.team1.orders;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import dev.team1.orders.dtos.DeliveryConfirmationDTORequest;
 import dev.team1.orders.dtos.DeliveryMetricsDTOResponse;
 import dev.team1.orders.dtos.OrderDTOResponse;
+import dev.team1.orders.dtos.PendingDeliveryDTOResponse;
 
 @RestController
 @RequestMapping(path = "${api-endpoint}/delivery")
@@ -25,6 +28,11 @@ public class DeliveryController {
     @GetMapping("/metrics")
     public ResponseEntity<DeliveryMetricsDTOResponse> getMetrics() {
         return ResponseEntity.ok(orderService.getDeliveryMetrics());
+    }
+
+    @GetMapping("/orders/pending")
+    public ResponseEntity<List<PendingDeliveryDTOResponse>> getPendingDeliveries() {
+        return ResponseEntity.ok(orderService.getPendingDeliveries());
     }
 
     @PatchMapping("/orders/{id}/status")
