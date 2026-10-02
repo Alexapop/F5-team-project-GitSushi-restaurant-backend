@@ -83,6 +83,9 @@ public class SecurityConfiguration {
                 .requestMatchers(pre + "/auth/login").permitAll()
                 .requestMatchers(pre + "/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.GET, pre + "/products").permitAll()
+                // GS-562: el acceso al ticket lo comprueba OrderService (dueño, admin o token)
+                .requestMatchers(HttpMethod.GET, pre + "/tickets/*").permitAll()
+
                 .anyRequest().authenticated())
             
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
