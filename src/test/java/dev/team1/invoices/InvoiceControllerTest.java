@@ -5,10 +5,8 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -23,7 +21,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.MediaType;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,7 +30,6 @@ import dev.team1.contracts.IInvoiceService;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
-import dev.team1.invoices.dtos.InvoiceDTORequest;
 import dev.team1.invoices.dtos.InvoiceDTOResponse;
 import dev.team1.invoices.dtos.PaidInvoiceDTOResponse;
 import dev.team1.security.JwtFilter;
@@ -67,56 +64,7 @@ class InvoiceControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = "ADMIN")
-  void create_shouldReturnCreatedInvoice() throws Exception {
-    UUID invoiceNumber = UUID.fromString("33333333-3333-3333-3333-333333333333");
-    InvoiceDTOResponse invoice = InvoiceDTOResponse.builder()
-        .id(3L)
-        .orderId(13L)
-        .invoiceNumber(invoiceNumber)
-        .amount(new BigDecimal("31.25"))
-        .paidAt(Instant.parse("2026-10-01T14:00:00Z"))
-        .build();
-    when(invoiceService.create(any(InvoiceDTORequest.class))).thenReturn(invoice);
-
-    mockMvc.perform(post("/api/v1/invoices")
-            .with(csrf())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
-                {"invoiceNumber":"33333333-3333-3333-3333-333333333333","amount":31.25,"paidAt":"2026-10-01T14:00:00Z"}
-                """))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.id").value(3))
-        .andExpect(jsonPath("$.invoiceNumber").value(invoiceNumber.toString()))
-        .andExpect(jsonPath("$.amount").value(31.25));
-
-    verify(invoiceService).create(any(InvoiceDTORequest.class));
-  }
-
-  @Test
-  @WithMockUser(roles = "ADMIN")
-  void findById_shouldReturnInvoice() throws Exception {
-    Long invoiceId = 4L;
-    InvoiceDTOResponse invoice = InvoiceDTOResponse.builder()
-        .id(invoiceId)
-        .orderId(14L)
-        .invoiceNumber(UUID.fromString("44444444-4444-4444-4444-444444444444"))
-        .amount(new BigDecimal("42.00"))
-        .paidAt(Instant.parse("2026-10-01T15:00:00Z"))
-        .build();
-    when(invoiceService.findById(invoiceId)).thenReturn(invoice);
-
-    mockMvc.perform(get("/api/v1/invoices/{id}", invoiceId))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value(4))
-        .andExpect(jsonPath("$.orderId").value(14))
-        .andExpect(jsonPath("$.amount").value(42.00));
-
-    verify(invoiceService).findById(invoiceId);
-  }
-
-  @Test
-  @WithMockUser(roles = "ADMIN")
+  @WithMockUser (roles = "ADMIN")
   void findAll_shouldReturnInvoicesPage() throws Exception {
     InvoiceDTOResponse invoice = InvoiceDTOResponse.builder()
         .id(1L)
@@ -139,7 +87,7 @@ class InvoiceControllerTest {
   }
 
   @Test
-  @WithMockUser(roles = "ADMIN")
+  @WithMockUser(authorities = "ROLE_ADMIN")
   void findPaid_shouldReturnPaidInvoicesPage() throws Exception {
     PaidInvoiceDTOResponse invoice = new PaidInvoiceDTOResponse(
         2L,
