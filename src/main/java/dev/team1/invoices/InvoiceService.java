@@ -80,4 +80,10 @@ public class InvoiceService implements IInvoiceService {
 
     return InvoiceMapper.toPaidDTO(invoice);
   }
+
+  @Override
+  @Transactional(readOnly = true)
+  public PaidInvoiceDTOResponse findPaid(String search, Pageable pageable) {
+    
+  }
 }
