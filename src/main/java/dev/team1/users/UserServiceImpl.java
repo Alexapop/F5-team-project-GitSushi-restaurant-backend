@@ -15,9 +15,11 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -80,8 +82,13 @@ public class UserServiceImpl implements IUserService {
 
     @Override 
     @Transactional 
-    public UserResponseDTO update(UUID id, UserPatchRequestDTO dto) {
+    public UserResponseDTO update(UUID id, UserPatchRequestDTO requestDto) {
+        UserEntity originalEntity = userRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
+        UserEntity updatedEntity = UserMapper.updateEntity(originalEntity, requestDto);
+        UserEntity savedEntity = userRepository.save(updatedEntity);
+        return UserMapper.toDTO(savedEntity);
     }
 
 
