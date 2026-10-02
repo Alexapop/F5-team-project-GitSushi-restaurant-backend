@@ -200,14 +200,14 @@ public class InvoiceServiceTest {
 		table.setTableNumber(42);
 		order.setTable(table);
 		invoice.setOrder(order);
-		when(invoiceRepository.searchPaidInvoices(OrderStatus.PAID, 42L, 42, "42", pageable))
+		when(invoiceRepository.searchPaidInvoices(42L, 42, "42", pageable))
 				.thenReturn(new PageImpl<>(List.of(invoice), pageable, 1));
 
 		Page<PaidInvoiceDTOResponse> response = invoiceService.findPaid(" 42 ", pageable);
 
 		assertEquals(1, response.getTotalElements());
 		assertEquals(42, response.getContent().get(0).tableNumber());
-		verify(invoiceRepository).searchPaidInvoices(OrderStatus.PAID, 42L, 42, "42", pageable);
+		verify(invoiceRepository).searchPaidInvoices(42L, 42, "42", pageable);
 	}
 
 	@Test
@@ -224,19 +224,19 @@ public class InvoiceServiceTest {
 				new BigDecimal("21.00"),
 				Instant.parse("2026-10-01T18:00:00Z"));
 		invoice.setOrder(order);
-		when(invoiceRepository.searchPaidInvoices(OrderStatus.PAID, null, null, "Ana", pageable))
+		when(invoiceRepository.searchPaidInvoices(null, null, "Ana", pageable))
 				.thenReturn(new PageImpl<>(List.of(invoice), pageable, 1));
 
 		Page<PaidInvoiceDTOResponse> response = invoiceService.findPaid(" Ana ", pageable);
 
 		assertEquals("Ana Perez", response.getContent().get(0).customerName());
-		verify(invoiceRepository).searchPaidInvoices(OrderStatus.PAID, null, null, "Ana", pageable);
+		verify(invoiceRepository).searchPaidInvoices(null, null, "Ana", pageable);
 	}
 
 	@Test
 	void findPaidWithBlankSearch_shouldSearchWithoutFilters() {
 		Pageable pageable = PageRequest.of(0, 5);
-		when(invoiceRepository.searchPaidInvoices(OrderStatus.PAID, null, null, null, pageable))
+		when(invoiceRepository.searchPaidInvoices(null, null, null, pageable))
 				.thenReturn(new PageImpl<>(List.of(invoice(
 						UUID.fromString("99999999-9999-9999-9999-999999999999"),
 						new BigDecimal("12.00"),
@@ -245,21 +245,19 @@ public class InvoiceServiceTest {
 		Page<PaidInvoiceDTOResponse> response = invoiceService.findPaid("   ", pageable);
 
 		assertEquals(1, response.getTotalElements());
-		verify(invoiceRepository).searchPaidInvoices(OrderStatus.PAID, null, null, null, pageable);
+		verify(invoiceRepository).searchPaidInvoices(null, null, null, pageable);
 	}
 
 	@Test
-	void findPaidWithSearch_shouldThrowNotFoundWhenThereAreNoMatches() {
+	void findPaidWithSearch_shouldReturnEmptyPageWhenThereAreNoMatches() {
 		Pageable pageable = PageRequest.of(0, 5);
-		when(invoiceRepository.searchPaidInvoices(OrderStatus.PAID, null, null, "Nobody", pageable))
+		when(invoiceRepository.searchPaidInvoices(null, null, "Nobody", pageable))
 				.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
-		InvoiceExceptionNotFound exception = assertThrows(
-				InvoiceExceptionNotFound.class,
-				() -> invoiceService.findPaid("Nobody", pageable));
+		Page<PaidInvoiceDTOResponse> response = invoiceService.findPaid("Nobody", pageable);
 
-		assertEquals("Not paid invoices found.", exception.getMessage());
-		verify(invoiceRepository).searchPaidInvoices(OrderStatus.PAID, null, null, "Nobody", pageable);
+		assertEquals(0, response.getTotalElements());
+		verify(invoiceRepository).searchPaidInvoices(null, null, "Nobody", pageable);
 	}
 
 	@Test

@@ -1,6 +1,8 @@
 package dev.team1.invoices;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -116,6 +118,48 @@ class InvoiceControllerTest {
   @WithMockUser(roles = "CUSTOMER")
   void findAll_shouldRejectNonAdmin() throws Exception {
     mockMvc.perform(get("/api/v1/invoices"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void facturation_shouldReturnPaidInvoicesPageWithSearch() throws Exception {
+    PaidInvoiceDTOResponse invoice = new PaidInvoiceDTOResponse(
+        3L,
+        UUID.fromString("33333333-3333-3333-3333-333333333333"),
+        "Ana Perez",
+        4,
+        OrderChannel.ONSITE,
+        new BigDecimal("18.00"),
+        OrderStatus.DELIVERED,
+        PaymentMethod.CARD_ONSITE,
+        Instant.parse("2026-10-01T13:00:00Z"));
+    Page<PaidInvoiceDTOResponse> invoices = new PageImpl<>(List.of(invoice));
+    when(invoiceService.findPaid(eq("Ana"), any(Pageable.class))).thenReturn(invoices);
+
+    mockMvc.perform(get("/api/v1/facturation").param("search", "Ana"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content[0].id").value(3))
+        .andExpect(jsonPath("$.content[0].customerName").value("Ana Perez"))
+        .andExpect(jsonPath("$.content[0].status").value("DELIVERED"));
+
+    verify(invoiceService).findPaid(eq("Ana"), any(Pageable.class));
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void facturation_shouldReturnEmptyPageWhenThereAreNoInvoices() throws Exception {
+    when(invoiceService.findPaid(isNull(), any(Pageable.class))).thenReturn(Page.empty());
+
+    mockMvc.perform(get("/api/v1/facturation"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content").isEmpty());
+  }
+
+  @Test
+  @WithMockUser(roles = "COOK")
+  void facturation_shouldRejectNonAdmin() throws Exception {
+    mockMvc.perform(get("/api/v1/facturation"))
         .andExpect(status().isForbidden());
   }
 }
