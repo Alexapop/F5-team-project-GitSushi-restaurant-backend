@@ -187,6 +187,45 @@ public class InvoiceServiceTest {
 		assertEquals("Not paid invoices found.", exception.getMessage());
 	}
 
+	@Test
+	void findPaidById_shouldReturnPaidInvoiceWithOrderDetails() {
+		UserEntity user = new UserEntity();
+		user.setFirstName("Ana");
+		user.setLastName("Perez");
+		OrderEntity order = new OrderEntity();
+		order.setStatus(OrderStatus.PAID);
+		order.setChannel(OrderChannel.ONSITE);
+		order.setPaymentMethod(PaymentMethod.CARD_ONSITE);
+		order.setUser(user);
+		InvoiceEntity invoice = invoice(
+				UUID.fromString("66666666-6666-6666-6666-666666666666"),
+				new BigDecimal("26.00"),
+				Instant.parse("2026-10-01T16:00:00Z"));
+		invoice.setOrder(order);
+		when(invoiceRepository.findByIdAndOrder_Status(9L, OrderStatus.PAID))
+				.thenReturn(Optional.of(invoice));
+
+		PaidInvoiceDTOResponse response = invoiceService.findPaidById(9L);
+
+		assertEquals("Ana Perez", response.customerName());
+		assertEquals(OrderChannel.ONSITE, response.channel());
+		assertEquals(OrderStatus.PAID, response.status());
+		assertEquals(PaymentMethod.CARD_ONSITE, response.paymentMethod());
+		verify(invoiceRepository).findByIdAndOrder_Status(9L, OrderStatus.PAID);
+	}
+
+	@Test
+	void findPaidById_shouldThrowNotFoundWhenInvoiceIsMissingOrNotPaid() {
+		when(invoiceRepository.findByIdAndOrder_Status(404L, OrderStatus.PAID))
+				.thenReturn(Optional.empty());
+
+		InvoiceExceptionNotFound exception = assertThrows(
+				InvoiceExceptionNotFound.class,
+				() -> invoiceService.findPaidById(404L));
+
+		assertEquals("Paid invoice 404 not found.", exception.getMessage());
+	}
+
 	private InvoiceEntity invoice(UUID invoiceNumber, BigDecimal amount, Instant paidAt) {
 		InvoiceEntity invoice = InvoiceEntity.builder()
 				.amount(amount)

@@ -10,6 +10,7 @@ import dev.team1.invoices.dtos.PaidInvoiceDTOResponse;
 public interface IInvoiceService {
   InvoiceDTOResponse create(InvoiceDTORequest request);
   InvoiceDTOResponse findById(Long id);
+  PaidInvoiceDTOResponse findPaidById(Long id);
   Page<InvoiceDTOResponse> findAll(Pageable pageable);
   Page<PaidInvoiceDTOResponse> findPaid(Pageable pageable);
 }

@@ -15,5 +15,7 @@ public interface InvoiceRepository extends JpaRepository<InvoiceEntity, Long> {
 
   boolean existsByInvoiceNumber(UUID invoiceNumber);
 
+  Optional<InvoiceEntity> findByIdAndOrder_Status(Long id, OrderStatus status);
+
   Page<InvoiceEntity> findByOrder_Status (OrderStatus status, Pageable pageable);
 }

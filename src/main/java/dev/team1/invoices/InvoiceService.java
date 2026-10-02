@@ -69,4 +69,15 @@ public class InvoiceService implements IInvoiceService {
 
     return paidInvoices.map(InvoiceMapper::toPaidDTO);
   }
+
+  @Override
+  @Transactional(readOnly = true)
+  public PaidInvoiceDTOResponse findPaidById(Long id) {
+    InvoiceEntity invoice = invoiceRepository
+      .findByIdAndOrder_Status(id, OrderStatus.PAID)
+      .orElseThrow(() -> new InvoiceExceptionNotFound(
+        "Paid invoice " + id + " not found."));
+
+    return InvoiceMapper.toPaidDTO(invoice);
+  }
 }
