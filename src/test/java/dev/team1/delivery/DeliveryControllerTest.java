@@ -1,4 +1,4 @@
-package dev.team1.orders;
+package dev.team1.delivery;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -20,8 +20,9 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import dev.team1.delivery.dtos.DeliveryMetricsDTOResponse;
 import dev.team1.enums.OrderStatus;
-import dev.team1.orders.dtos.DeliveryMetricsDTOResponse;
+import dev.team1.orders.OrderService;
 import dev.team1.security.JwtFilter;
 import dev.team1.security.SecurityConfiguration;
 import org.springframework.http.MediaType;
@@ -88,7 +89,7 @@ class DeliveryControllerTest {
         when(service.markAsDelivered(eq(1L), any()))
                 .thenReturn(new dev.team1.orders.dtos.OrderDTOResponse(
                         1L, null, null, null, null, null, null, null,
-                        OrderStatus.DELIVERED, null, null, null, null));
+                        OrderStatus.DELIVERED, null, null, null, null, null, null));
 
         mockMvc.perform(patch("/api/v1/delivery/orders/1/status")
                         .secure(true)

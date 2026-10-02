@@ -59,8 +59,29 @@ public class OrderEntity {
     @Column(nullable = false, scale = 2)
     private BigDecimal total;
     
+ //added delivery details 
+    @Column(precision = 19, scale = 2, updatable = false)
+    private BigDecimal deliveryFee;
+
+    @Column(length = 255, updatable = false)
+    private String deliveryStreet;
+
+    @Column(length = 100, updatable = false)
+    private String deliveryCity;
+
+    @Column(length = 20, updatable = false)
+    private String deliveryPostalCode;
+
+    @Column(length = 500, updatable = false)
+    private String deliveryInstructions;
+
+    @Column(length = 36, unique = true, updatable = false)
+    private String ticketAccessToken;
+    
     @Column (length = 500, nullable = true)
     private String chefNote;
+
+    private LocalDateTime paidAt;
 
     @Enumerated(EnumType.STRING)
     private PaymentStatus paymentStatus;
