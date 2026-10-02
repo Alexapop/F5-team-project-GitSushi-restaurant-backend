@@ -1,9 +1,15 @@
 package dev.team1.mappers;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+
+import org.springframework.stereotype.Component;
 
 import dev.team1.roles.RoleEntity;
+import dev.team1.roles.RoleRepository;
 import dev.team1.users.UserEntity;
+import dev.team1.users.dtos.UserPatchRequestDTO;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
 
@@ -43,6 +49,24 @@ public class UserMapper {
 
     public static String rolesToString(List<String> rolesList) {
         return String.join(", ", rolesList);
+    }
+
+    public static UserEntity updateEntity(UserEntity entity, UserPatchRequestDTO dto, RoleEntity role) {
+
+        if (dto.firstName() != null) entity.setFirstName(dto.firstName());
+        if (dto.lastName() != null) entity.setLastName(dto.lastName());
+        if (dto.email() != null) entity.setEmail(dto.email());
+        if (dto.address() != null) entity.setAddress(dto.address());
+        if (dto.postalCode() != null) entity.setPostalCode(dto.postalCode());
+        if (dto.city() != null) entity.setCity(dto.city());
+        
+        if (role != null) {
+            Set<RoleEntity> roles = new HashSet<>();
+            roles.add(role);
+            entity.setRoles(roles);
+        }
+
+        return entity;
     }
 
 }

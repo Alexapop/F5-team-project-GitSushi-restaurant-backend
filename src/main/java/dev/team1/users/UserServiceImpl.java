@@ -86,7 +86,8 @@ public class UserServiceImpl implements IUserService {
         UserEntity originalEntity = userRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        UserEntity updatedEntity = UserMapper.updateEntity(originalEntity, requestDto);
+        RoleEntity newRole = findNewRole(requestDto.role());
+        UserEntity updatedEntity = UserMapper.updateEntity(originalEntity, requestDto, newRole);
         UserEntity savedEntity = userRepository.save(updatedEntity);
         return UserMapper.toDTO(savedEntity);
     }
@@ -144,6 +145,17 @@ public class UserServiceImpl implements IUserService {
             .discountRate(discountRate)
             .user(user)
             .build();
+    }
+
+    private RoleEntity findNewRole(String dtoName) {
+        String name;
+        if (!dtoName.startsWith("ROLE_")) {
+            name = "ROLE_" + dtoName;
+        } else {
+            name = dtoName;
+        }
+        return roleRepository.findByName(name)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role '" + name + "' not found!"));
     }
 
 }
