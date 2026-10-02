@@ -86,7 +86,8 @@ public class UserServiceImpl implements IUserService {
         UserEntity originalEntity = userRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        RoleEntity newRole = findNewRole(requestDto.role());
+        // Solo se busca el rol si viene en el body: {"active": false} no lo trae.
+        RoleEntity newRole = isBlank(requestDto.role()) ? null : findNewRole(requestDto.role());
         UserEntity updatedEntity = UserMapper.updateEntity(originalEntity, requestDto, newRole);
         UserEntity savedEntity = userRepository.save(updatedEntity);
         return UserMapper.toDTO(savedEntity);
