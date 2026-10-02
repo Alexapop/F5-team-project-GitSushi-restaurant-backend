@@ -40,6 +40,14 @@ public class InvoiceController {
     return ResponseEntity.ok(invoiceService.findById(id));
   }
 
+  @GetMapping("/invoices")
+  public ResponseEntity<Page<InvoiceDTOResponse>> findAll(
+    @PageableDefault(size = 5, sort = "paidAt", direction = Sort.Direction.DESC)
+    Pageable pageable
+  ) {
+    return ResponseEntity.ok(invoiceService.findAll(pageable));
+  }
+
   @GetMapping("/invoices/paid")
   public ResponseEntity<Page<PaidInvoiceDTOResponse>> findPaid(
     @PageableDefault(size = 5, sort = "paidAt", direction = Sort.Direction.DESC)

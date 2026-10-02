@@ -49,6 +49,13 @@ public class InvoiceService implements IInvoiceService {
 
   @Override
   @Transactional(readOnly = true)
+  public Page<InvoiceDTOResponse> findAll(Pageable pageable) {
+    return invoiceRepository.findAll(pageable)
+      .map(InvoiceMapper::toDTO);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
   public Page<PaidInvoiceDTOResponse> findPaid(Pageable pageable) {
     return invoiceRepository
       .findByOrder_Status(OrderStatus.PAID, pageable)
