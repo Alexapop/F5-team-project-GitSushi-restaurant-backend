@@ -14,7 +14,8 @@ public record KitchenOrderDTOResponse(
         LocalDateTime createdAt,
         boolean isDelayed,
         List<KitchenOrderItemDTO> items,
-        PaymentStatus paymentStatus
+        PaymentStatus paymentStatus,
+        boolean hasPriorityNote
 ) {
     public record KitchenOrderItemDTO(
             String productName,

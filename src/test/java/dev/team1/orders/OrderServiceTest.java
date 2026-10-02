@@ -10,6 +10,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -49,6 +51,65 @@ import dev.team1.users.UserRepository;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
+
+    @Test
+    void getActiveKitchenOrdersMarksNoteAsPriority() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setChefNote("Alergia al sésamo");
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of(order));
+
+        List<KitchenOrderDTOResponse> responses = service.getActiveKitchenOrders();
+
+        assertEquals(1, responses.size());
+        assertEquals("Alergia al sésamo", responses.get(0).chefNote());
+        assertEquals(true, responses.get(0).hasPriorityNote());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "   ", "\t", "\n"})
+    void getActiveKitchenOrdersDoesNotMarkMissingNoteAsPriority(String chefNote) {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setChefNote(chefNote);
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of(order));
+
+        List<KitchenOrderDTOResponse> responses = service.getActiveKitchenOrders();
+
+        assertEquals(1, responses.size());
+        assertNull(responses.get(0).chefNote());
+        assertEquals(false, responses.get(0).hasPriorityNote());
+    }
+
+    @Test
+    void updateKitchenStatusToReadyPreservesNoteForPickup() {
+        String chefNote = "Alergia al sésamo";
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setChefNote(chefNote);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of(order));
+
+        KitchenOrderDTOResponse response = service.updateKitchenStatus(1L, OrderStatus.READY);
+
+        assertEquals(OrderStatus.READY, response.status());
+        assertEquals(chefNote, response.chefNote());
+        assertEquals(true, response.hasPriorityNote());
+        ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(captor.capture());
+        assertEquals(OrderStatus.READY, captor.getValue().getStatus());
+        assertEquals(chefNote, captor.getValue().getChefNote());
+
+        List<OrderDTOResponse> pickupOrders = service.getByStatus(OrderStatus.READY);
+
+        assertEquals(1, pickupOrders.size());
+        assertEquals(chefNote, pickupOrders.get(0).chefNote());
+    }
 
     @Mock
     private OrderRepository orderRepository;
@@ -270,6 +331,51 @@ class OrderServiceTest {
         assertEquals(OrderStatus.PLACED, savedOrder.getStatus());
         assertEquals(expectedPaymentStatus, response.paymentStatus());
         assertEquals(OrderStatus.PLACED, response.status());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "ONLINE_CARD, PENDING_ONLINE_PAYMENT",
+            "CASH_ON_DELIVERY, PENDING_CASH_ON_DELIVERY"
+    })
+    void createOnlineOrderSavesAndReturnsPendingPaymentStatus(
+            PaymentMethod paymentMethod, PaymentStatus expectedPaymentStatus) {
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product(null)));
+        when(orderRepository.save(any(OrderEntity.class)))
+                .thenAnswer(call -> call.getArgument(0));
+
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONLINE, paymentMethod);
+
+        OrderDTOResponse response = service.createOrder(request, null, null);
+
+        ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(captor.capture());
+        OrderEntity savedOrder = captor.getValue();
+
+        assertEquals(paymentMethod, savedOrder.getPaymentMethod());
+        assertEquals(expectedPaymentStatus, savedOrder.getPaymentStatus());
+        assertEquals(OrderStatus.PLACED, savedOrder.getStatus());
+        assertEquals(expectedPaymentStatus, response.paymentStatus());
+        assertEquals(OrderStatus.PLACED, response.status());
+    }
+
+    @Test
+    void markAsPaidClearsPendingOnlinePaymentStatus() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PLACED);
+        order.setChannel(OrderChannel.ONLINE);
+        order.setPaymentMethod(PaymentMethod.ONLINE_CARD);
+        order.setPaymentStatus(PaymentStatus.PENDING_ONLINE_PAYMENT);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        OrderDTOResponse response = service.markAsPaid(1L);
+
+        assertEquals(OrderStatus.PAID, response.status());
+        assertNull(order.getPaymentStatus());
+        assertNull(response.paymentStatus());
     }
 
     @ParameterizedTest
@@ -738,6 +844,7 @@ class OrderServiceTest {
         OrderEntity order = new OrderEntity();
         order.setStatus(OrderStatus.ONTHEWAY);
         order.setPaymentMethod(PaymentMethod.CASH_ON_DELIVERY);
+        order.setPaymentStatus(PaymentStatus.PENDING_CASH_ON_DELIVERY);
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
         when(orderRepository.save(order)).thenReturn(order);
 
@@ -746,6 +853,8 @@ class OrderServiceTest {
 
         assertEquals(OrderStatus.DELIVERED, order.getStatus());
         assertEquals(OrderStatus.DELIVERED, response.status());
+        assertNull(order.getPaymentStatus());
+        assertNull(response.paymentStatus());
         verify(orderRepository).save(order);
     }
 
