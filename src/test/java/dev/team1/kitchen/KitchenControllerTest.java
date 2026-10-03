@@ -21,7 +21,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
+import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
+import dev.team1.kitchen.dtos.KitchenChannelCountsDTOResponse;
 import dev.team1.kitchen.dtos.KitchenMetricsDTOResponse;
 import dev.team1.kitchen.dtos.KitchenOrderDTOResponse;
 import dev.team1.kitchen.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
@@ -66,7 +68,7 @@ class KitchenControllerTest {
     @Test
     @WithMockUser(roles = "COOK")
     void getActiveOrdersReturnsKitchenOrders() throws Exception {
-        when(service.getActiveKitchenOrders()).thenReturn(List.of(kitchenResponse(OrderStatus.PROCESSING, false)));
+        when(service.getActiveKitchenOrders(null)).thenReturn(List.of(kitchenResponse(OrderStatus.PROCESSING, false)));
 
         mockMvc.perform(get("/api/v1/kitchen/orders"))
                 .andExpect(status().isOk())
@@ -76,13 +78,13 @@ class KitchenControllerTest {
                 .andExpect(jsonPath("$[0].isDelayed").value(false))
                 .andExpect(jsonPath("$[0].chefNote").value("No onions"))
                 .andExpect(jsonPath("$[0].hasPriorityNote").value(true));
-        verify(service).getActiveKitchenOrders();
+        verify(service).getActiveKitchenOrders(null);
     }
 
     @Test
     @WithMockUser(roles = "COOK")
     void getActiveOrdersReturnsEmptyListWhenNoOrders() throws Exception {
-        when(service.getActiveKitchenOrders()).thenReturn(List.of());
+        when(service.getActiveKitchenOrders(null)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/kitchen/orders"))
                 .andExpect(status().isOk())
@@ -174,8 +176,8 @@ class KitchenControllerTest {
     void getActiveOrdersReturnsNoPriorityForMissingNote() throws Exception {
         KitchenOrderDTOResponse response = new KitchenOrderDTOResponse(
                 1L, OrderStatus.PROCESSING, null, LocalDateTime.now(),
-                false, List.of(), null, false);
-        when(service.getActiveKitchenOrders()).thenReturn(List.of(response));
+                false, List.of(), null, false, "ONSITE");
+        when(service.getActiveKitchenOrders(null)).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/v1/kitchen/orders"))
                 .andExpect(status().isOk())
@@ -220,9 +222,68 @@ class KitchenControllerTest {
         org.mockito.Mockito.verifyNoInteractions(service);
     }
 
+    @Test
+    @WithMockUser(roles = "COOK")
+    void getActiveOrdersFiltersByOnsiteChannel() throws Exception {
+        when(service.getActiveKitchenOrders(OrderChannel.ONSITE))
+                .thenReturn(List.of(kitchenResponse(OrderStatus.PROCESSING, false)));
+
+        mockMvc.perform(get("/api/v1/kitchen/orders").param("channel", "ONSITE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].channel").value("ONSITE"));
+        verify(service).getActiveKitchenOrders(OrderChannel.ONSITE);
+    }
+
+    @Test
+    @WithMockUser(roles = "COOK")
+    void getActiveOrdersFiltersByOnlineChannel() throws Exception {
+        KitchenOrderDTOResponse response = new KitchenOrderDTOResponse(
+                2L, OrderStatus.PAID, null, LocalDateTime.now(),
+                false, List.of(), null, false, "ONLINE");
+        when(service.getActiveKitchenOrders(OrderChannel.ONLINE)).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/kitchen/orders").param("channel", "ONLINE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].channel").value("ONLINE"));
+        verify(service).getActiveKitchenOrders(OrderChannel.ONLINE);
+    }
+
+    @Test
+    @WithMockUser(roles = "COOK")
+    void getActiveOrdersReturnsBadRequestForInvalidChannel() throws Exception {
+        mockMvc.perform(get("/api/v1/kitchen/orders").param("channel", "TAKEAWAY"))
+                .andExpect(status().isBadRequest());
+
+        org.mockito.Mockito.verifyNoInteractions(service);
+    }
+
+    @Test
+    @WithMockUser(roles = "COOK")
+    void getChannelCountsReturnsCountsPerChannel() throws Exception {
+        when(service.getKitchenChannelCounts()).thenReturn(new KitchenChannelCountsDTOResponse(5, 3, 2));
+
+        mockMvc.perform(get("/api/v1/kitchen/orders/counts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(5))
+                .andExpect(jsonPath("$.inStore").value(3))
+                .andExpect(jsonPath("$.delivery").value(2));
+        verify(service).getKitchenChannelCounts();
+    }
+
+    @Test
+    @WithMockUser(roles = "CUSTOMER")
+    void getChannelCountsReturnsForbiddenForCustomer() throws Exception {
+        mockMvc.perform(get("/api/v1/kitchen/orders/counts"))
+                .andExpect(status().isForbidden());
+
+        org.mockito.Mockito.verifyNoInteractions(service);
+    }
+
     private KitchenOrderDTOResponse kitchenResponse(OrderStatus status, boolean isDelayed) {
         return new KitchenOrderDTOResponse(
                 1L, status, "No onions", LocalDateTime.now(), isDelayed,
-                List.of(new KitchenOrderItemDTO("Sushi", new BigDecimal("2"))), null, true);
+                List.of(new KitchenOrderItemDTO("Sushi", new BigDecimal("2"))), null, true, "ONSITE");
     }
 }

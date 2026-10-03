@@ -24,6 +24,7 @@ import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
 import dev.team1.enums.PaymentStatus;
+import dev.team1.kitchen.dtos.KitchenChannelCountsDTOResponse;
 import dev.team1.kitchen.dtos.KitchenMetricsDTOResponse;
 import dev.team1.kitchen.dtos.KitchenOrderDTOResponse;
 import dev.team1.kitchen.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
@@ -51,6 +52,12 @@ public class OrderService {
     private static final BigDecimal DELIVERY_FEE = new BigDecimal("2.50");
 
     private static final int KITCHEN_TARGET_MINUTES = 15;
+
+    private static final List<OrderStatus> ACTIVE_KITCHEN_STATUSES = List.of(
+            OrderStatus.PLACED,
+            OrderStatus.PAID,
+            OrderStatus.PROCESSING,
+            OrderStatus.DELAYED);
 
     private static final Map<OrderChannel, List<PaymentMethod>> ALLOWED_PAYMENT_METHODS = Map.of(
             OrderChannel.ONSITE, List.of(PaymentMethod.CASH_ONSITE, PaymentMethod.CARD_ONSITE),
@@ -366,12 +373,18 @@ public class OrderService {
     // Incluye PAID para que el pedido pagado online aparezca en cocina,
     // y excluye los que todavía esperan el pago online.
     private List<OrderEntity> findActiveKitchenOrders() {
-        List<OrderEntity> orders = orderRepository.findByStatusIn(
-                List.of(
-                        OrderStatus.PLACED,
-                        OrderStatus.PAID,
-                        OrderStatus.PROCESSING,
-                        OrderStatus.DELAYED));
+        return findActiveKitchenOrders(null);
+    }
+
+    // GS-686: sin canal devuelve ambos canales ("Todos").
+    private List<OrderEntity> findActiveKitchenOrders(OrderChannel channel) {
+        List<OrderEntity> orders;
+
+        if (channel == null) {
+            orders = orderRepository.findByStatusIn(ACTIVE_KITCHEN_STATUSES);
+        } else {
+            orders = orderRepository.findByStatusInAndChannel(ACTIVE_KITCHEN_STATUSES, channel);
+        }
 
         return orders.stream()
                 .filter(order -> !isAwaitingOnlinePayment(order))
@@ -380,11 +393,33 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<KitchenOrderDTOResponse> getActiveKitchenOrders() {
-        List<OrderEntity> orders = findActiveKitchenOrders();
+        return getActiveKitchenOrders(null);
+    }
+
+    // GS-685: filtro opcional por canal (ONSITE = sala, ONLINE = domicilio).
+    @Transactional(readOnly = true)
+    public List<KitchenOrderDTOResponse> getActiveKitchenOrders(OrderChannel channel) {
+        List<OrderEntity> orders = findActiveKitchenOrders(channel);
 
         return orders.stream()
                 .map(this::toKitchenResponse)
                 .toList();
+    }
+
+    // GS-687: contadores de comandas activas por canal para los filtros.
+    @Transactional(readOnly = true)
+    public KitchenChannelCountsDTOResponse getKitchenChannelCounts() {
+        List<OrderEntity> activeOrders = findActiveKitchenOrders();
+
+        long inStore = activeOrders.stream()
+                .filter(order -> order.getChannel() == OrderChannel.ONSITE)
+                .count();
+
+        long delivery = activeOrders.stream()
+                .filter(order -> order.getChannel() == OrderChannel.ONLINE)
+                .count();
+
+        return new KitchenChannelCountsDTOResponse(activeOrders.size(), inStore, delivery);
     }
 
     @Transactional(readOnly = true)
@@ -457,7 +492,8 @@ public class OrderService {
                 isDelayed,
                 items,
                 order.getPaymentStatus(),
-                hasPriorityNote);
+                hasPriorityNote,
+                order.getChannel() != null ? order.getChannel().name() : null);
     }
 
     private boolean isOrderDelayed(OrderEntity order) {

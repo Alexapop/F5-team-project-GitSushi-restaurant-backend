@@ -15,7 +15,8 @@ public record KitchenOrderDTOResponse(
         boolean isDelayed,
         List<KitchenOrderItemDTO> items,
         PaymentStatus paymentStatus,
-        boolean hasPriorityNote
+        boolean hasPriorityNote,
+        String channel
 ) {
     public record KitchenOrderItemDTO(
             String productName,
