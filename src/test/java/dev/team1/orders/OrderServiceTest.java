@@ -53,6 +53,7 @@ import dev.team1.tables.TableEntity;
 import dev.team1.tables.TableRepository;
 import dev.team1.users.UserEntity;
 import dev.team1.users.UserRepository;
+import dev.team1.mail.MailService;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
@@ -127,6 +128,9 @@ class OrderServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private MailService mailService;
 
     @InjectMocks
     private OrderService service;
@@ -1203,6 +1207,110 @@ void createOrderRejectsChefNoteLongerThan500Characters() {
         assertEquals(0, counts.total());
         assertEquals(0, counts.inStore());
         assertEquals(0, counts.delivery());
+    }
+
+        @Test
+    void markAsInTransitUpdatesStatusAndSendsEmailToRegisteredUser() {
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(UUID.randomUUID());
+
+        UserEntity customer = new UserEntity();
+        customer.setEmail("customer@example.com");
+
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setDeliveryman(deliveryman);
+        order.setUser(customer);
+        order.setTicketAccessToken("abc-123");
+        ReflectionTestUtils.setField(order, "id", 1L);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        OrderDTOResponse response = service.markAsInTransit(1L);
+
+        assertEquals(OrderStatus.ONTHEWAY, order.getStatus());
+        assertEquals(OrderStatus.ONTHEWAY, response.status());
+        verify(mailService).sendOrderInTransitEmail("customer@example.com", 1L, "abc-123");
+    }
+
+    @Test
+    void markAsInTransitGuestOrderDoesNotSendEmail() {
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(UUID.randomUUID());
+
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setDeliveryman(deliveryman);
+        ReflectionTestUtils.setField(order, "id", 1L);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        service.markAsInTransit(1L);
+
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    void markAsInTransitUserWithoutEmailDoesNotSendEmail() {
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(UUID.randomUUID());
+
+        UserEntity customer = new UserEntity();
+        customer.setEmail(null);
+
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setDeliveryman(deliveryman);
+        order.setUser(customer);
+        ReflectionTestUtils.setField(order, "id", 1L);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        service.markAsInTransit(1L);
+
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    void markAsInTransitRejectsOrderNotReady() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsInTransit(1L));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    void markAsInTransitRejectsOrderWithoutDeliveryman() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsInTransit(1L));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    void markAsInTransitOrderNotFoundThrowsNotFound() {
+        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsInTransit(99L));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
     }
 
 }
