@@ -8,8 +8,13 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,11 +25,16 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import dev.team1.auth.CustomUserDetails;
 import dev.team1.delivery.dtos.DeliveryMetricsDTOResponse;
 import dev.team1.enums.OrderStatus;
 import dev.team1.orders.OrderService;
+import dev.team1.orders.dtos.PendingDeliveryDTOResponse;
+
 import dev.team1.security.JwtFilter;
 import dev.team1.security.SecurityConfiguration;
+import dev.team1.users.UserEntity;
+import dev.team1.roles.RoleEntity;
 import org.springframework.http.MediaType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletRequest;
@@ -83,7 +93,8 @@ class DeliveryControllerTest {
                 .andExpect(jsonPath("$.averageDeliveryMinutes").value(0.0));
         verify(service).getDeliveryMetrics();
     }
-        @Test
+
+    @Test
     @WithMockUser(roles = "DELIVERYMAN")
     void markAsDeliveredReturnsUpdatedOrder() throws Exception {
         when(service.markAsDelivered(eq(1L), any()))
@@ -102,7 +113,7 @@ class DeliveryControllerTest {
     }
 
     @Test
-        @WithMockUser(roles = "DELIVERYMAN")
+    @WithMockUser(roles = "DELIVERYMAN")
     void markAsDeliveredReturnsConflictWhenNotOnTheWay() throws Exception {
         when(service.markAsDelivered(eq(1L), any()))
                 .thenThrow(new org.springframework.web.server.ResponseStatusException(
@@ -118,7 +129,7 @@ class DeliveryControllerTest {
     }
 
     @Test
-        @WithMockUser(roles = "DELIVERYMAN")
+    @WithMockUser(roles = "DELIVERYMAN")
     void markAsDeliveredReturnsBadRequestWithoutCashConfirmation() throws Exception {
         when(service.markAsDelivered(eq(1L), any()))
                 .thenThrow(new org.springframework.web.server.ResponseStatusException(
@@ -131,5 +142,98 @@ class DeliveryControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "DELIVERYMAN")
+    void assignDeliverymanReturnsUpdatedOrder() throws Exception {
+        UUID deliverymanId = UUID.randomUUID();
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(deliverymanId);
+        RoleEntity role = new RoleEntity();
+        role.setName("ROLE_DELIVERYMAN");
+        deliveryman.setRoles(Set.of(role));
+
+                when(service.assignDeliveryman(1L, deliverymanId))
+                .thenReturn(new dev.team1.orders.dtos.OrderDTOResponse(
+                        1L, null, null, null, null, null, null, null,
+                        OrderStatus.READY, null, null, null, null, null, null));
+
+        mockMvc.perform(patch("/api/v1/delivery/orders/1/assign")
+                        .secure(true)
+                        .with(user(new CustomUserDetails(deliveryman)))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("READY"));
+        verify(service).assignDeliveryman(1L, deliverymanId);
+    }
+
+    @Test
+    @WithMockUser(roles = "DELIVERYMAN")
+    void assignDeliverymanReturnsConflictWhenNotAvailable() throws Exception {
+        UUID deliverymanId = UUID.randomUUID();
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(deliverymanId);
+        RoleEntity role = new RoleEntity();
+        role.setName("ROLE_DELIVERYMAN");
+        deliveryman.setRoles(Set.of(role));
+
+        when(service.assignDeliveryman(1L, deliverymanId))
+                .thenThrow(new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.CONFLICT,
+                        "Order is not available for delivery assignment: PROCESSING"));
+
+        mockMvc.perform(patch("/api/v1/delivery/orders/1/assign")
+                        .secure(true)
+                        .with(user(new CustomUserDetails(deliveryman)))
+                        .with(csrf()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @WithMockUser(roles = "DELIVERYMAN")
+    void assignDeliverymanReturnsUnauthorizedWhenDeliverymanUnknown() throws Exception {
+        UUID deliverymanId = UUID.randomUUID();
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(deliverymanId);
+        RoleEntity role = new RoleEntity();
+        role.setName("ROLE_DELIVERYMAN");
+        deliveryman.setRoles(Set.of(role));
+
+        when(service.assignDeliveryman(1L, deliverymanId))
+                .thenThrow(new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.UNAUTHORIZED,
+                        "Authenticated user no longer exists"));
+
+        mockMvc.perform(patch("/api/v1/delivery/orders/1/assign")
+                        .secure(true)
+                        .with(user(new CustomUserDetails(deliveryman)))
+                        .with(csrf()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "DELIVERYMAN")
+    void getPendingDeliveriesReturnsList() throws Exception {
+        when(service.getPendingDeliveries())
+                .thenReturn(List.of(new PendingDeliveryDTOResponse(1L, "Calle Mayor 1, Gijón")));
+
+        mockMvc.perform(get("/api/v1/delivery/orders/pending"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].address").value("Calle Mayor 1, Gijón"));
+        verify(service).getPendingDeliveries();
+    }
+
+    @Test
+    @WithMockUser(roles = "DELIVERYMAN")
+    void getPendingDeliveriesReturnsEmptyListWhenNoneAvailable() throws Exception {
+        when(service.getPendingDeliveries()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/delivery/orders/pending"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+        verify(service).getPendingDeliveries();
     }
 }

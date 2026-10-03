@@ -1,5 +1,8 @@
 package dev.team1.orders;
 
+import static org.mockito.ArgumentMatchers.eq;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import dev.team1.orders.dtos.PendingDeliveryDTOResponse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -12,6 +15,7 @@ import static org.mockito.Mockito.when;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -943,5 +947,170 @@ void createOrderRejectsChefNoteLongerThan500Characters() {
             tableRepository,
             userRepository);
 }
+
+    @Test
+    void assignDeliverymanSuccessAssignsOrderAndReturnsResponse() {
+        UUID deliverymanId = UUID.randomUUID();
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(deliverymanId);
+
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setChannel(OrderChannel.ONLINE);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(userRepository.findById(deliverymanId)).thenReturn(Optional.of(deliveryman));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        OrderDTOResponse response = service.assignDeliveryman(1L, deliverymanId);
+
+        assertSame(deliveryman, order.getDeliveryman());
+        assertEquals(OrderStatus.READY, response.status());
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void assignDeliverymanRejectsOrderNotReady() {
+        UUID deliverymanId = UUID.randomUUID();
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setChannel(OrderChannel.ONLINE);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.assignDeliveryman(1L, deliverymanId));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void assignDeliverymanRejectsOnsiteOrder() {
+        UUID deliverymanId = UUID.randomUUID();
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setChannel(OrderChannel.ONSITE);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.assignDeliveryman(1L, deliverymanId));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void assignDeliverymanRejectsAlreadyAssignedOrder() {
+        UUID deliverymanId = UUID.randomUUID();
+        UserEntity existingDeliveryman = new UserEntity();
+        existingDeliveryman.setId(UUID.randomUUID());
+
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setChannel(OrderChannel.ONLINE);
+        order.setDeliveryman(existingDeliveryman);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.assignDeliveryman(1L, deliverymanId));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void assignDeliverymanOrderNotFoundThrowsNotFound() {
+        UUID deliverymanId = UUID.randomUUID();
+        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.assignDeliveryman(99L, deliverymanId));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+    }
+
+    @Test
+    void assignDeliverymanRejectsUnknownDeliverymanWithUnauthorized() {
+        UUID deliverymanId = UUID.randomUUID();
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setChannel(OrderChannel.ONLINE);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(userRepository.findById(deliverymanId)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.assignDeliveryman(1L, deliverymanId));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void assignDeliverymanHandlesOptimisticLockingConflict() {
+        UUID deliverymanId = UUID.randomUUID();
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(deliverymanId);
+
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setChannel(OrderChannel.ONLINE);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(userRepository.findById(deliverymanId)).thenReturn(Optional.of(deliveryman));
+        when(orderRepository.save(order))
+                .thenThrow(new ObjectOptimisticLockingFailureException(OrderEntity.class, 1L));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.assignDeliveryman(1L, deliverymanId));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+    }
+
+    @Test
+    void getPendingDeliveriesReturnsMappedList() {
+        UserEntity user = new UserEntity();
+        user.setAddress("Calle Mayor 1, Gijón");
+
+        OrderEntity order = new OrderEntity();
+        ReflectionTestUtils.setField(order, "id", 1L);
+        order.setUser(user);
+
+        when(orderRepository.findByStatusAndChannelAndDeliverymanIsNull(OrderStatus.READY, OrderChannel.ONLINE))
+                .thenReturn(List.of(order));
+
+        List<PendingDeliveryDTOResponse> result = service.getPendingDeliveries();
+
+        assertEquals(1, result.size());
+        assertEquals(1L, result.get(0).id());
+        assertEquals("Calle Mayor 1, Gijón", result.get(0).address());
+    }
+
+    @Test
+    void getPendingDeliveriesReturnsNullAddressWhenNoUser() {
+        OrderEntity order = new OrderEntity();
+        ReflectionTestUtils.setField(order, "id", 1L);
+
+        when(orderRepository.findByStatusAndChannelAndDeliverymanIsNull(OrderStatus.READY, OrderChannel.ONLINE))
+                .thenReturn(List.of(order));
+
+        List<PendingDeliveryDTOResponse> result = service.getPendingDeliveries();
+
+        assertEquals(1, result.size());
+        assertNull(result.get(0).address());
+    }
+
+    @Test
+    void getPendingDeliveriesReturnsEmptyListWhenNoOrders() {
+        when(orderRepository.findByStatusAndChannelAndDeliverymanIsNull(OrderStatus.READY, OrderChannel.ONLINE))
+                .thenReturn(List.of());
+
+        List<PendingDeliveryDTOResponse> result = service.getPendingDeliveries();
+
+        assertEquals(0, result.size());
+    }
 
 }

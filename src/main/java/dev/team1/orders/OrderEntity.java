@@ -29,6 +29,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "orders")
@@ -110,11 +111,20 @@ public class OrderEntity {
     @JoinColumn(name = "user_id", nullable = true)
     private UserEntity user;
 
+        // GS-668: motorista asignado al pedido; null hasta que un repartidor se lo asigne.
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "deliveryman_id", nullable = true)
+    private UserEntity deliveryman;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "delivered_at")
     private LocalDateTime deliveredAt;
+
+        // GS-707: bloqueo optimista para evitar dobles asignaciones del mismo pedido.
+    @Version
+    private Long version;
 
     @PrePersist
     protected void onCreate() {
