@@ -1,4 +1,4 @@
-package dev.team1.orders.dtos;
+package dev.team1.users.dtos;
 
 public record UserProfileRequestDTO(
     String firstName,
