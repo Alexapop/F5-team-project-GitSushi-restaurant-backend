@@ -9,6 +9,7 @@ import dev.team1.products.exceptions.ProductExceptionNotFound;
 import dev.team1.roles.RoleEntity;
 import dev.team1.roles.RoleRepository;
 import dev.team1.users.dtos.UserPatchRequestDTO;
+import dev.team1.users.dtos.UserProfileRequestDTO;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +37,7 @@ public class UserServiceImpl implements IUserService {
     private final RoleRepository roleRepository;
 
     private static final Pattern EMAIL_PATTERN =
-        Pattern.compile("^[\\w.+-]+@[\\w-]+\\.[a-zA-Z]{2,}$");
+        Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
 
     @Override 
@@ -93,32 +94,96 @@ public class UserServiceImpl implements IUserService {
         return UserMapper.toDTO(savedEntity);
     }
 
+    @Override
+    @Transactional
+    public UserResponseDTO updateProfile(
+        UUID id,
+        UUID authenticatedUserId,
+        UserProfileRequestDTO requestDTO
+    ) {
+        if (authenticatedUserId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Debes iniciar sesión");
+        }
+
+        if (!authenticatedUserId.equals(id)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo puedes editar tu propio perfil");
+        }
+
+        UserEntity user = userRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+
+        validateProfileFields(
+            requestDTO.firstName(),
+            requestDTO.lastName(),
+            requestDTO.email(),
+            requestDTO.address(),
+            requestDTO.postalCode(),
+            requestDTO.city()
+        );
+
+        String email = requestDTO.email().trim();
+        validateEmailFormat(email);
+
+        if (userRepository.existsByEmailAndIdNot(email, id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con este email");
+        }
+
+        user.setFirstName(requestDTO.firstName().trim());
+        user.setLastName(requestDTO.lastName().trim());
+        user.setEmail(email);
+        user.setAddress(requestDTO.address().trim());
+        user.setPostalCode(requestDTO.postalCode().trim());
+        user.setCity(requestDTO.city().trim());
+
+        UserEntity savedUser = userRepository.saveAndFlush(user);
+        return UserMapper.toDTO(savedUser);
+    }
+
     @Override 
     public void delete(UUID id) {
         userRepository.deleteById(id);
     }
 
     private void validateRequiredFields(UserRequestDTO dto) {
-        if (isBlank(dto.getFirstName())) {
-            throw new IllegalArgumentException("El nombre es obligatorio");
-        }
-        if (isBlank(dto.getLastName())) {
-            throw new IllegalArgumentException("Los apellidos son obligatorios");
-        }
-        if (isBlank(dto.getEmail())) {
-            throw new IllegalArgumentException("El email es obligatorio");
-        }
-        if (isBlank(dto.getAddress())) {
-            throw new IllegalArgumentException("La dirección es obligatoria");
-        }
-        if (isBlank(dto.getPostalCode())) {
-            throw new IllegalArgumentException("El código postal es obligatorio");
-        }
-        if (isBlank(dto.getCity())) {
-            throw new IllegalArgumentException("La ciudad es obligatoria");
-        }
+        validateProfileFields(
+            dto.getFirstName(),
+            dto.getLastName(),
+            dto.getEmail(),
+            dto.getAddress(),
+            dto.getPostalCode(),
+            dto.getCity()
+        );
+
         if (isBlank(dto.getPassword())) {
             throw new IllegalArgumentException("La contraseña es obligatoria");
+        }
+    }
+
+    private void validateProfileFields(
+        String firstName,
+        String lastName,
+        String email,
+        String address,
+        String postalCode,
+        String city
+    ) {
+        if (isBlank(firstName)) {
+            throw new IllegalArgumentException("El nombre es obligatorio");
+        }
+        if (isBlank(lastName)) {
+            throw new IllegalArgumentException("Los apellidos son obligatorios");
+        }
+        if (isBlank(email)) {
+            throw new IllegalArgumentException("El email es obligatorio");
+        }
+        if (isBlank(address)) {
+            throw new IllegalArgumentException("La dirección es obligatoria");
+        }
+        if (isBlank(postalCode)) {
+            throw new IllegalArgumentException("El código postal es obligatorio");
+        }
+        if (isBlank(city)) {
+            throw new IllegalArgumentException("La ciudad es obligatoria");
         }
     }
 

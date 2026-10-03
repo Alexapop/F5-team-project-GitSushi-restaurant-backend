@@ -1,6 +1,5 @@
 package dev.team1.orders;
 
-import static org.mockito.ArgumentMatchers.eq;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import dev.team1.orders.dtos.PendingDeliveryDTOResponse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,6 +41,7 @@ import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
 import dev.team1.enums.PaymentStatus;
+import dev.team1.kitchen.dtos.KitchenChannelCountsDTOResponse;
 import dev.team1.kitchen.dtos.KitchenMetricsDTOResponse;
 import dev.team1.kitchen.dtos.KitchenOrderDTOResponse;
 import dev.team1.orders.dtos.OrderDTORequest;
@@ -1111,6 +1111,98 @@ void createOrderRejectsChefNoteLongerThan500Characters() {
         List<PendingDeliveryDTOResponse> result = service.getPendingDeliveries();
 
         assertEquals(0, result.size());
+    }
+
+    // GS-689: filtro de comandas por canal y contadores
+    private static final List<OrderStatus> ACTIVE_KITCHEN_STATUSES = List.of(
+            OrderStatus.PLACED, OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.DELAYED);
+
+    private OrderEntity kitchenOrder(OrderChannel channel, OrderStatus status, PaymentMethod paymentMethod) {
+        OrderEntity order = new OrderEntity();
+        order.setChannel(channel);
+        order.setStatus(status);
+        order.setPaymentMethod(paymentMethod);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setOrderProducts(new ArrayList<>());
+        return order;
+    }
+
+    @Test
+    void getActiveKitchenOrdersFiltersOnlyOnsite() {
+        OrderEntity onsite = kitchenOrder(OrderChannel.ONSITE, OrderStatus.PROCESSING, PaymentMethod.CASH_ONSITE);
+        when(orderRepository.findByStatusInAndChannel(ACTIVE_KITCHEN_STATUSES, OrderChannel.ONSITE))
+                .thenReturn(List.of(onsite));
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders(OrderChannel.ONSITE);
+
+        assertEquals(1, result.size());
+        assertEquals("ONSITE", result.get(0).channel());
+        verify(orderRepository, never()).findByStatusIn(any());
+    }
+
+    @Test
+    void getActiveKitchenOrdersFiltersOnlyOnline() {
+        OrderEntity online = kitchenOrder(OrderChannel.ONLINE, OrderStatus.PAID, PaymentMethod.ONLINE_CARD);
+        when(orderRepository.findByStatusInAndChannel(ACTIVE_KITCHEN_STATUSES, OrderChannel.ONLINE))
+                .thenReturn(List.of(online));
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders(OrderChannel.ONLINE);
+
+        assertEquals(1, result.size());
+        assertEquals("ONLINE", result.get(0).channel());
+        verify(orderRepository, never()).findByStatusIn(any());
+    }
+
+    @Test
+    void getActiveKitchenOrdersOnlineExcludesOrdersAwaitingOnlinePayment() {
+        OrderEntity awaitingPayment = kitchenOrder(OrderChannel.ONLINE, OrderStatus.PLACED, PaymentMethod.ONLINE_CARD);
+        OrderEntity cashOnDelivery = kitchenOrder(OrderChannel.ONLINE, OrderStatus.PLACED, PaymentMethod.CASH_ON_DELIVERY);
+        when(orderRepository.findByStatusInAndChannel(ACTIVE_KITCHEN_STATUSES, OrderChannel.ONLINE))
+                .thenReturn(List.of(awaitingPayment, cashOnDelivery));
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders(OrderChannel.ONLINE);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getActiveKitchenOrdersWithoutChannelReturnsBothChannels() {
+        OrderEntity onsite = kitchenOrder(OrderChannel.ONSITE, OrderStatus.PROCESSING, PaymentMethod.CASH_ONSITE);
+        OrderEntity online = kitchenOrder(OrderChannel.ONLINE, OrderStatus.PAID, PaymentMethod.ONLINE_CARD);
+        when(orderRepository.findByStatusIn(ACTIVE_KITCHEN_STATUSES)).thenReturn(List.of(onsite, online));
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders(null);
+
+        assertEquals(2, result.size());
+        assertEquals("ONSITE", result.get(0).channel());
+        assertEquals("ONLINE", result.get(1).channel());
+        verify(orderRepository, never()).findByStatusInAndChannel(any(), any());
+    }
+
+    @Test
+    void getKitchenChannelCountsReturnsCountsPerChannel() {
+        when(orderRepository.findByStatusIn(ACTIVE_KITCHEN_STATUSES)).thenReturn(List.of(
+                kitchenOrder(OrderChannel.ONSITE, OrderStatus.PROCESSING, PaymentMethod.CASH_ONSITE),
+                kitchenOrder(OrderChannel.ONSITE, OrderStatus.PLACED, PaymentMethod.CARD_ONSITE),
+                kitchenOrder(OrderChannel.ONLINE, OrderStatus.PAID, PaymentMethod.ONLINE_CARD),
+                kitchenOrder(OrderChannel.ONLINE, OrderStatus.PLACED, PaymentMethod.ONLINE_CARD)));
+
+        KitchenChannelCountsDTOResponse counts = service.getKitchenChannelCounts();
+
+        assertEquals(3, counts.total());
+        assertEquals(2, counts.inStore());
+        assertEquals(1, counts.delivery());
+    }
+
+    @Test
+    void getKitchenChannelCountsReturnsZerosWhenNoActiveOrders() {
+        when(orderRepository.findByStatusIn(ACTIVE_KITCHEN_STATUSES)).thenReturn(List.of());
+
+        KitchenChannelCountsDTOResponse counts = service.getKitchenChannelCounts();
+
+        assertEquals(0, counts.total());
+        assertEquals(0, counts.inStore());
+        assertEquals(0, counts.delivery());
     }
 
 }

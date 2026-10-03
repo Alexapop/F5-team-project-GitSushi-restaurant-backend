@@ -13,5 +13,5 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
    List<OrderEntity> findByStatusIn(List<OrderStatus> statuses);
    List<OrderEntity> findByStatusAndDeliveredAtGreaterThanEqual(OrderStatus status, LocalDateTime since);
    List<OrderEntity> findByStatusAndChannelAndDeliverymanIsNull(OrderStatus status, OrderChannel channel);
-
+   List<OrderEntity> findByStatusInAndChannel(List<OrderStatus> statuses, OrderChannel channel);
 }
