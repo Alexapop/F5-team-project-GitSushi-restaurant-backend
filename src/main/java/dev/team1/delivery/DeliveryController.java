@@ -47,6 +47,11 @@ public class DeliveryController {
         return ResponseEntity.ok(orderService.assignDeliveryman(id, deliverymanId));
     }
 
+    @PatchMapping("/orders/{id}/in-transit")
+    public ResponseEntity<OrderDTOResponse> markAsInTransit(@PathVariable Long id) {
+        return ResponseEntity.ok(orderService.markAsInTransit(id));
+    }
+
     @PatchMapping("/orders/{id}/status")
     public ResponseEntity<OrderDTOResponse> markAsDelivered(
             @PathVariable Long id,
