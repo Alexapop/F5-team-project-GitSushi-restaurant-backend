@@ -96,6 +96,8 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, pre + "/products").permitAll()
                 // GS-562: el acceso al ticket lo comprueba OrderService (dueño, admin o token)
                 .requestMatchers(HttpMethod.GET, pre + "/tickets/*").permitAll()
+                // GS-475: resumen de ventas y PDF, solo para el administrador
+                .requestMatchers(pre + "/reports/**").hasRole("ADMIN")
 
                 .anyRequest().authenticated())
             
@@ -112,7 +114,8 @@ public class SecurityConfiguration {
         config.setAllowedOrigins(List.of(frontendDomain)); // frontend domain
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
         config.setAllowedHeaders(List.of("X-XSRF-TOKEN", "*"));
-        config.setAllowCredentials(true); 
+        config.setAllowCredentials(true);
+        config.setExposedHeaders(List.of("Content-Disposition"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
