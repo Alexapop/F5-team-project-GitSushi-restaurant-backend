@@ -99,6 +99,8 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, pre + "/tickets/*").permitAll()
                 // GS-475: resumen de ventas y PDF, solo para el administrador
                 .requestMatchers(pre + "/reports/**").hasRole("ADMIN")
+                // GS-486: KPI de ventas, solo para el administrador
+                .requestMatchers(pre + "/kpi/**").hasRole("ADMIN")
 
                 .anyRequest().authenticated())
             
