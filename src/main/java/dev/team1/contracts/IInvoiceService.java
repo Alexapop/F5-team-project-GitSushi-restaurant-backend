@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import dev.team1.invoices.dtos.InvoiceDTORequest;
 import dev.team1.invoices.dtos.InvoiceDTOResponse;
 import dev.team1.invoices.dtos.PaidInvoiceDTOResponse;
+import dev.team1.orders.OrderEntity;
 
 public interface IInvoiceService {
   InvoiceDTOResponse create(InvoiceDTORequest request);
@@ -14,4 +15,5 @@ public interface IInvoiceService {
   Page<InvoiceDTOResponse> findAll(Pageable pageable);
   Page<PaidInvoiceDTOResponse> findPaid(Pageable pageable);
   Page<PaidInvoiceDTOResponse> findPaid(String search, Pageable pageable);
+  void createForPaidOrder(OrderEntity order);
 }
