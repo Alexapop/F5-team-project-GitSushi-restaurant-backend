@@ -34,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import dev.team1.contracts.IInvoiceService;
 import dev.team1.delivery.dtos.DeliveryAddressDTORequest;
 import dev.team1.delivery.dtos.DeliveryConfirmationDTORequest;
 import dev.team1.delivery.dtos.DeliveryMetricsDTOResponse;
@@ -133,6 +134,9 @@ class OrderServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private IInvoiceService invoiceService;
 
     @InjectMocks
     private OrderService service;
