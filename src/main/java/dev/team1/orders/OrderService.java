@@ -646,7 +646,10 @@ public class OrderService {
         OrderEntity savedOrder = orderRepository.save(order);
 
         if (savedOrder.getUser() != null && savedOrder.getUser().getEmail() != null) {
-            mailService.sendOrderInTransitEmail(savedOrder.getUser().getEmail(), savedOrder.getId());
+                       mailService.sendOrderInTransitEmail(
+                    savedOrder.getUser().getEmail(),
+                    savedOrder.getId(),
+                    savedOrder.getTicketAccessToken());
         }
 
         return toResponse(savedOrder);
