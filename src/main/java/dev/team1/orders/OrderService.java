@@ -28,6 +28,7 @@ import dev.team1.kitchen.dtos.KitchenChannelCountsDTOResponse;
 import dev.team1.kitchen.dtos.KitchenMetricsDTOResponse;
 import dev.team1.kitchen.dtos.KitchenOrderDTOResponse;
 import dev.team1.kitchen.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
+import dev.team1.mail.MailService;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.orders.dtos.PendingDeliveryDTOResponse;
@@ -72,15 +73,18 @@ public class OrderService {
     private final ProductRepository productsRepository;
     private final TableRepository tableRepository;
     private final UserRepository userRepository;
+    private final MailService mailService;
 
     public OrderService(OrderRepository orderRepository,
             ProductRepository productsRepository,
             TableRepository tableRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            MailService mailService) {
         this.orderRepository = orderRepository;
         this.productsRepository = productsRepository;
         this.tableRepository = tableRepository;
         this.userRepository = userRepository;
+        this.mailService = mailService;
     }
 
     @Transactional
@@ -441,7 +445,7 @@ public class OrderService {
 
         long readyCount = orderRepository.findByStatus(OrderStatus.READY).size();
 
-        return new KitchenMetricsDTOResponse(total, averageMinutes, processingCount, delayedCount, readyCount);
+        return new KitchenMetricsDTOResponse(total, averageMinutes, processingCount, delayedCount,readyCount);
     }
 
     @Transactional(readOnly = true)
@@ -522,7 +526,7 @@ public class OrderService {
         return toKitchenResponse(savedOrder);
     }
 
-    private void validateKitchenStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {
+    private void validateKitchenStatusTransition(OrderStatus currentStatus, OrderStatus newStatus){
         if (newStatus == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Kitchen status is required");
@@ -562,6 +566,36 @@ public class OrderService {
                 savedOrder.getDeliveryFee(),
                 savedOrder.getTicketAccessToken());
     }
+
+    // GS-607: el repartidor marca el pedido como "en camino" y se notifica al cliente por email.
+    @Transactional
+    public OrderDTOResponse markAsInTransit(Long id) {
+        OrderEntity order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Order not found: " + id));
+
+        if (order.getStatus() != OrderStatus.READY) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot mark as in transit from status: " + order.getStatus());
+        }
+
+        if (order.getDeliveryman() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Order must be assigned to a deliveryman before it can be marked as in transit");
+        }
+
+        order.setStatus(OrderStatus.ONTHEWAY);
+        OrderEntity savedOrder = orderRepository.save(order);
+
+        if (savedOrder.getUser() != null && savedOrder.getUser().getEmail() != null) {
+            mailService.sendOrderInTransitEmail(savedOrder.getUser().getEmail(), savedOrder.getId());
+        }
+
+        return toResponse(savedOrder);
+    }
+
         @Transactional
     public OrderDTOResponse markAsDelivered(Long id, DeliveryConfirmationDTORequest request) {
         OrderEntity order = orderRepository.findById(id)
