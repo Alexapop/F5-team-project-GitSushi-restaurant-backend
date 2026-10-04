@@ -1,6 +1,7 @@
 package dev.team1.invoices;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -8,13 +9,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -22,6 +26,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
@@ -43,6 +48,45 @@ public class InvoiceServiceTest {
 
 	@InjectMocks
 	private InvoiceService invoiceService;
+
+	private static final Instant PAYMENT_TIME = Instant.parse("2026-10-04T18:30:00Z");
+	private static final Clock FIXED_CLOCK = Clock.fixed(PAYMENT_TIME, ZoneOffset.UTC);
+
+	// GS-51: al cobrarse un pedido se guarda su factura con el total y la hora del cobro.
+	@Test
+	void createForPaidOrder_shouldSaveInvoiceWithOrderTotalAndPaymentTime() {
+		InvoiceService service = new InvoiceService(invoiceRepository, FIXED_CLOCK);
+		OrderEntity order = paidOrder(7L, new BigDecimal("23.10"));
+		when(invoiceRepository.existsByOrder_Id(7L)).thenReturn(false);
+
+		service.createForPaidOrder(order);
+
+		ArgumentCaptor<InvoiceEntity> captor = ArgumentCaptor.forClass(InvoiceEntity.class);
+		verify(invoiceRepository).save(captor.capture());
+		InvoiceEntity invoice = captor.getValue();
+		assertSame(order, invoice.getOrder());
+		assertEquals(new BigDecimal("23.10"), invoice.getAmount());
+		assertEquals(PAYMENT_TIME, invoice.getPaidAt());
+	}
+
+	// Un pedido solo tiene una factura aunque el cobro se confirme dos veces.
+	@Test
+	void createForPaidOrder_shouldNotDuplicateInvoiceOfSameOrder() {
+		InvoiceService service = new InvoiceService(invoiceRepository, FIXED_CLOCK);
+		OrderEntity order = paidOrder(7L, new BigDecimal("23.10"));
+		when(invoiceRepository.existsByOrder_Id(7L)).thenReturn(true);
+
+		service.createForPaidOrder(order);
+
+		verify(invoiceRepository, never()).save(any(InvoiceEntity.class));
+	}
+
+	private OrderEntity paidOrder(Long id, BigDecimal total) {
+		OrderEntity order = new OrderEntity();
+		ReflectionTestUtils.setField(order, "id", id);
+		order.setTotal(total);
+		return order;
+	}
 
 	@Test
 	void create_shouldSaveAndReturnInvoice() {
