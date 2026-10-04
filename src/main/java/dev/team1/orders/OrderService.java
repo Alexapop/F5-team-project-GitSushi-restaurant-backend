@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.jsoup.Jsoup;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,9 @@ import dev.team1.kitchen.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.mail.MailService;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
+import dev.team1.orders.dtos.OrderHistoryDTOResponse;
+import dev.team1.orders.dtos.OrderHistoryDTOResponse.OrderHistoryItemDTO;
+import dev.team1.orders.dtos.RepeatOrderItemDTOResponse;
 import dev.team1.orders.dtos.PendingDeliveryDTOResponse;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import dev.team1.orders_products.OrderProductEntity;
@@ -230,6 +235,57 @@ public class OrderService {
         }
 
         return toTicketResponse(order);
+    }
+
+    // historial paginado. Solo lo ve el propio cliente o un admin.
+    @Transactional(readOnly = true)
+    public Page<OrderHistoryDTOResponse> getOrderHistory(UUID userId, UUID currentUserId, boolean isAdmin,
+            Pageable pageable) {
+        if (!isAdmin && !userId.equals(currentUserId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "You are not allowed to see this order history");
+        }
+
+        return orderRepository.findByUser_IdOrderByCreatedAtDesc(userId, pageable)
+                .map(this::toHistoryResponse);
+    }
+
+    private OrderHistoryDTOResponse toHistoryResponse(OrderEntity order) {
+        List<OrderHistoryItemDTO> items = order.getOrderProducts().stream()
+                .map(op -> new OrderHistoryItemDTO(
+                        op.getProduct().getId(),
+                        op.getProduct().getName(),
+                        op.getQuantity().intValue(),
+                        op.getUnitPrice(),
+                        op.getProduct().isAvailable()))
+                .toList();
+
+        return new OrderHistoryDTOResponse(order.getId(), order.getCreatedAt(), items, order.getTotal());
+    }
+
+    // líneas de un pedido anterior para cargarlas en la cesta.
+    // Solo productos disponibles y con su precio actual.
+    @Transactional(readOnly = true)
+    public List<RepeatOrderItemDTOResponse> getRepeatOrderItems(Long orderId, UUID currentUserId, boolean isAdmin) {
+        OrderEntity order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Order not found: " + orderId));
+
+        boolean isOwner = order.getUser() != null && order.getUser().getId().equals(currentUserId);
+
+        if (!isAdmin && !isOwner) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "You are not allowed to repeat this order");
+        }
+
+        return order.getOrderProducts().stream()
+                .filter(op -> op.getProduct().isAvailable())
+                .map(op -> new RepeatOrderItemDTOResponse(
+                        op.getProduct().getId(),
+                        op.getProduct().getName(),
+                        op.getProduct().getPrice(),
+                        op.getQuantity().intValue()))
+                .toList();
     }
 
     private TicketDTOResponse toTicketResponse(OrderEntity order) {

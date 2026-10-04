@@ -22,6 +22,7 @@ import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
+import dev.team1.orders.dtos.RepeatOrderItemDTOResponse;
 import jakarta.validation.Valid;
 
 @RestController
@@ -64,6 +65,19 @@ public class OrderController {
     public ResponseEntity<OrderDTOResponse> getById(
             @PathVariable Long id) {
         return ResponseEntity.ok(orderService.getById(id));
+    }
+
+    //  devuelve las líneas del pedido para repetir orden 
+    @GetMapping("/{id}/repeat")
+    public ResponseEntity<List<RepeatOrderItemDTOResponse>> getRepeatOrderItems(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+
+        UUID currentUserId = currentUser.user().getId();
+        boolean isAdmin = currentUser.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+
+        return ResponseEntity.ok(orderService.getRepeatOrderItems(id, currentUserId, isAdmin));
     }
 
     @GetMapping
