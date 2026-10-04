@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import dev.team1.contracts.IInvoiceService;
 import dev.team1.delivery.dtos.DeliveryAddressDTORequest;
 import dev.team1.delivery.dtos.DeliveryAddressDTOResponse;
 import dev.team1.delivery.dtos.DeliveryConfirmationDTORequest;
@@ -79,17 +80,21 @@ public class OrderService {
     private final TableRepository tableRepository;
     private final UserRepository userRepository;
     private final MailService mailService;
+    // GS-51: OrderService no sabe crear facturas; se lo pide al contrato de facturas.
+    private final IInvoiceService invoiceService;
 
     public OrderService(OrderRepository orderRepository,
             ProductRepository productsRepository,
             TableRepository tableRepository,
             UserRepository userRepository,
-            MailService mailService) {
+            MailService mailService,
+            IInvoiceService invoiceService) {
         this.orderRepository = orderRepository;
         this.productsRepository = productsRepository;
         this.tableRepository = tableRepository;
         this.userRepository = userRepository;
         this.mailService = mailService;
+        this.invoiceService = invoiceService;
     }
 
     @Transactional
@@ -398,6 +403,8 @@ public class OrderService {
         order.setPaymentStatus(null);
         order.setPaidAt(LocalDateTime.now());
         OrderEntity savedOrder = orderRepository.save(order);
+        // GS-51: el pago confirmado genera la factura que ven Facturación, Resumen y KPI.
+        invoiceService.createForPaidOrder(savedOrder);
         return toResponse(savedOrder);
     }
 
@@ -655,8 +662,8 @@ public class OrderService {
         return toResponse(savedOrder);
     }
 
-        @Transactional
-    public OrderDTOResponse markAsDelivered(Long id, DeliveryConfirmationDTORequest request) {
+    @Transactional
+        public OrderDTOResponse markAsDelivered(Long id, DeliveryConfirmationDTORequest request) {
         OrderEntity order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Order not found: " + id));
@@ -676,17 +683,24 @@ public class OrderService {
 
         order.setStatus(OrderStatus.DELIVERED);
         order.setDeliveredAt(LocalDateTime.now());
-        if (order.getPaymentMethod() == PaymentMethod.CASH_ON_DELIVERY) {
+        boolean cashCollectedOnDelivery = order.getPaymentMethod() == PaymentMethod.CASH_ON_DELIVERY;
+        if (cashCollectedOnDelivery) {
             order.setPaymentStatus(null); // el repartidor ya ha cobrado
+            order.setPaidAt(LocalDateTime.now());
         }
         OrderEntity savedOrder = orderRepository.save(order);
+        // GS-51: en efectivo a la entrega, el cobro del repartidor genera la factura.
+        if (cashCollectedOnDelivery) {
+            invoiceService.createForPaidOrder(savedOrder);
+        }
         return toResponse(savedOrder);
     }
+
         @Transactional(readOnly = true)
     public List<PendingDeliveryDTOResponse> getPendingDeliveries() {
         List<OrderEntity> orders = orderRepository
                 .findByStatusAndChannelAndDeliverymanIsNull(OrderStatus.READY, OrderChannel.ONLINE);
-
+                
         return orders.stream()
                 .map(order -> new PendingDeliveryDTOResponse(
                         order.getId(),
