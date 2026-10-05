@@ -1,5 +1,8 @@
 package dev.team1.invoices;
 
+import java.time.Clock;
+import java.time.Instant;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -13,13 +16,34 @@ import dev.team1.invoices.dtos.PaidInvoiceDTOResponse;
 import dev.team1.invoices.exceptions.InvoiceException;
 import dev.team1.invoices.exceptions.InvoiceExceptionNotFound;
 import dev.team1.mappers.InvoiceMapper;
+import dev.team1.orders.OrderEntity;
 
 @Service
 public class InvoiceService implements IInvoiceService {
   private final InvoiceRepository invoiceRepository;
+  // Reloj en hora de España (ReportsConfiguration); en los tests se fija la hora.
+  private final Clock clock;
 
-  public InvoiceService(InvoiceRepository invoiceRepository) {
+  public InvoiceService(InvoiceRepository invoiceRepository, Clock clock) {
     this.invoiceRepository = invoiceRepository;
+    this.clock = clock;
+  }
+
+  // GS-51: al cobrarse un pedido se genera su factura, una sola por pedido.
+  @Override
+  @Transactional
+  public void createForPaidOrder(OrderEntity order) {
+    if (invoiceRepository.existsByOrder_Id(order.getId())) {
+      return;
+    }
+
+    InvoiceEntity invoice = InvoiceEntity.builder()
+        .amount(order.getTotal())
+        .paidAt(Instant.now(clock))
+        .build();
+    invoice.setOrder(order);
+
+    invoiceRepository.save(invoice);
   }
 
   @Override
