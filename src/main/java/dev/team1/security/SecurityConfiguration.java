@@ -103,6 +103,8 @@ public class SecurityConfiguration {
                 .requestMatchers(pre + "/reports/**").hasRole("ADMIN")
                 // GS-486: KPI de ventas, solo para el administrador
                 .requestMatchers(pre + "/kpi/**").hasRole("ADMIN")
+                // Subida automática del resumen de ventas a la nube, solo para el administrador
+                .requestMatchers(pre + "/sistema/**").hasRole("ADMIN")
 
                 .anyRequest().authenticated())
             
