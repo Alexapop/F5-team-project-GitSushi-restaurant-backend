@@ -6,6 +6,7 @@ import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
 import dev.team1.enums.PaymentStatus;
+import java.time.LocalDateTime;
 
 public record OrderDTOResponse(
         Long id,
@@ -22,7 +23,8 @@ public record OrderDTOResponse(
         Integer tableNumber,
         PaymentStatus paymentStatus,
         BigDecimal deliveryFee,
-        String ticketAccessToken
+        String ticketAccessToken,
+        LocalDateTime deliveredAt
 
 ) {
 
