@@ -819,3 +819,8 @@ INSERT INTO products (
 
 -- Los INSERT de arriba no rellenan "active": los usuarios de prueba quedan activos.
 UPDATE users SET active = TRUE WHERE active IS NULL;
+
+-- Mesas del restaurante (cada una vinculada a una tablet)
+INSERT INTO tables (table_number, device_identifier) VALUES
+    (1, 'tablet-1'), (2, 'tablet-2'), (3, 'tablet-3'), (4, 'tablet-4'), (5, 'tablet-5'),
+    (6, 'tablet-6'), (7, 'tablet-7'), (8, 'tablet-8'), (9, 'tablet-9'), (10, 'tablet-10');
