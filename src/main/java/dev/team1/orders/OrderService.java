@@ -168,7 +168,7 @@ public class OrderService {
         order.setPaymentMethod(request.paymentMethod());
         order.setPaymentStatus(PAYMENT_STATUS.get(request.paymentMethod()));
         order.setStatus(OrderStatus.PLACED);
-        order.setTable(resolveTable(request.channel(), deviceIdentifier));
+        order.setTable(resolveTable(request.channel(), request.tableNumber(), deviceIdentifier));
         order.setDeliveryFee(deliveryFee);
         order.setTicketAccessToken(UUID.randomUUID().toString());
         setDeliveryAddress(order, request.deliveryAddress());
@@ -336,11 +336,19 @@ public class OrderService {
         }
     }
 
-    private TableEntity resolveTable(OrderChannel channel, String deviceIdentifier) {
+    private TableEntity resolveTable(OrderChannel channel, Integer tableNumber, String deviceIdentifier) {
         if (channel != dev.team1.enums.OrderChannel.ONSITE) {
             return null;
         }
 
+        // Si el cliente indica el número de mesa, se usa ese.
+        if (tableNumber != null) {
+            return tableRepository.findByTableNumber(tableNumber)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "No table found with number " + tableNumber + "."));
+        }
+
+        // Si no, se busca la mesa vinculada al dispositivo.
         if (deviceIdentifier == null || deviceIdentifier.strip().isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Device identifier is required for onsite orders.");

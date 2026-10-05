@@ -231,6 +231,36 @@ class OrderServiceTest {
     }
 
     @Test
+    void createOnsiteOrderUsesTableNumberBeforeDevice() {
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product(null)));
+        when(tableRepository.findByTableNumber(7)).thenReturn(Optional.of(table(7)));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE, null, 7);
+
+        OrderDTOResponse response = service.createOrder(request, "unlinked-browser", null);
+
+        assertEquals(7, response.tableNumber());
+        verify(tableRepository, never()).findByDeviceIdentifier(any());
+    }
+
+    @Test
+    void createOnsiteOrderRejectsUnknownTableNumberWithoutSaving() {
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product(null)));
+        when(tableRepository.findByTableNumber(99)).thenReturn(Optional.empty());
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE, null, 99);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.createOrder(request, null, null));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
     void createOnlineOrderDoesNotAssociateTable() {
         ProductEntity product = product(null);
         when(productRepository.findById(2L)).thenReturn(Optional.of(product));

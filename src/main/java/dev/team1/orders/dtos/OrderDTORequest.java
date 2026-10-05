@@ -18,7 +18,15 @@ public record OrderDTORequest(
                 String chefNote,
                 @NotNull OrderChannel channel,
                 @NotNull PaymentMethod paymentMethod,
-                @Valid DeliveryAddressDTORequest deliveryAddress ) {//solo para pedido online
+                @Valid DeliveryAddressDTORequest deliveryAddress, //solo para pedido online
+                @Positive Integer tableNumber) { //solo para pedido en sala (opcional)
+
+        // Constructor sin número de mesa: mantiene compatibles los usos anteriores.
+        public OrderDTORequest(List<OrderItemDTORequest> items, String chefNote,
+                        OrderChannel channel, PaymentMethod paymentMethod,
+                        DeliveryAddressDTORequest deliveryAddress) {
+                this(items, chefNote, channel, paymentMethod, deliveryAddress, null);
+        }
 
         // one ordered product and its quantity.
         public record OrderItemDTORequest(
