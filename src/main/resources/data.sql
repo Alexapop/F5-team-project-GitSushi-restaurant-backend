@@ -12,7 +12,7 @@ INSERT INTO users (
     created_at
 ) VALUES (
     default, 'Siquis', 'Miquis',
-    'admin@gitsushi.com', 'admin123',
+    'admin@gitsushi.com', '$2a$10$DzBwWIXHwrA/G0m/.HiKXONFQG0oPWkWgydjFYtAmY/ZmwgED7acm',
     'España, Asturias', '58149', 'Oviedo',
     NOW()
 );
@@ -24,18 +24,53 @@ INSERT INTO users (
     created_at
 ) VALUES (
     default, 'Caquis', 'Paquis',
-    'customer@gitsushi.com', 'user1234',
+    'customer@gitsushi.com', '$2a$10$KFQqmrA8kxGuTAFZI3VIzehDAcHkVBNu47vh4fS73XwSTr52.YTlO',
     'España, Asturias', '58149', 'Oviedo',
+    NOW()
+);
+
+INSERT INTO users (
+    id, first_name, last_name, 
+    email, password, 
+    address, postal_code, city, 
+    created_at
+) VALUES (
+    default, 'Pipa', 'Shlipa',
+    'cook@gitsushi.com', '$2a$10$PP1LXKcRTtPdFgkHvZkFTuqNUXBWg9YF8bq4QGJabiCgy7JmNR/PC',
+    'España, Asturias', '58149', 'Gijon',
+    NOW()
+);
+
+INSERT INTO users (
+    id, first_name, last_name, 
+    email, password, 
+    address, postal_code, city,
+    created_at
+) VALUES (
+    default, 'Pupis', 'Mupis',
+    'delivery@gitsushi.com', '$2a$10$oBSRXV7cxdejw1F6jKcmLuUqHlZSkVnNtr5HMiPYg0bXEQqkSM0IW',
+    'España, Asturias', '58149', 'Aviles',
     NOW()
 );
 
 -- === USERS_ROLES === 
 
+-- === USERS_ROLES ===
 INSERT INTO users_roles (user_id, role_id) VALUES (
-    (SELECT id FROM users ORDER BY created_at LIMIT 1), 2
+    (SELECT id FROM users WHERE email = 'admin@gitsushi.com'),
+    (SELECT id FROM roles WHERE name = 'ROLE_ADMIN')
 );
 INSERT INTO users_roles (user_id, role_id) VALUES (
-    (SELECT id FROM users ORDER BY created_at LIMIT 1 OFFSET 1), 1
+    (SELECT id FROM users WHERE email = 'customer@gitsushi.com'),
+    (SELECT id FROM roles WHERE name = 'ROLE_CUSTOMER')
+);
+INSERT INTO users_roles (user_id, role_id) VALUES (
+    (SELECT id FROM users WHERE email = 'cook@gitsushi.com'),
+    (SELECT id FROM roles WHERE name = 'ROLE_COOK')
+);
+INSERT INTO users_roles (user_id, role_id) VALUES (
+    (SELECT id FROM users WHERE email = 'delivery@gitsushi.com'),
+    (SELECT id FROM roles WHERE name = 'ROLE_DELIVERYMAN')
 );
 
 -- === LA CARTA ===
@@ -781,3 +816,11 @@ INSERT INTO products (
     'vino-tinto.png', 3.5, 
     0.0, TRUE, FALSE
 );
+
+-- Los INSERT de arriba no rellenan "active": los usuarios de prueba quedan activos.
+UPDATE users SET active = TRUE WHERE active IS NULL;
+
+-- Mesas del restaurante (cada una vinculada a una tablet)
+INSERT INTO tables (table_number, device_identifier) VALUES
+    (1, 'tablet-1'), (2, 'tablet-2'), (3, 'tablet-3'), (4, 'tablet-4'), (5, 'tablet-5'),
+    (6, 'tablet-6'), (7, 'tablet-7'), (8, 'tablet-8'), (9, 'tablet-9'), (10, 'tablet-10');

@@ -6,14 +6,22 @@ import org.springframework.web.bind.annotation.RestController;
 import dev.team1.contracts.IInvoiceService;
 import dev.team1.invoices.dtos.InvoiceDTORequest;
 import dev.team1.invoices.dtos.InvoiceDTOResponse;
+import dev.team1.invoices.dtos.PaidInvoiceDTOResponse;
 import jakarta.validation.Valid;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
+
+
 
 @RestController
 @RequestMapping(path = "${api-endpoint}")
@@ -34,4 +42,34 @@ public class InvoiceController {
     return ResponseEntity.ok(invoiceService.findById(id));
   }
 
+  @GetMapping("/invoices/paid/{id}")
+  public ResponseEntity<PaidInvoiceDTOResponse> findPaidById(@PathVariable Long id) {
+    return ResponseEntity.ok(invoiceService.findPaidById(id));
+  }
+
+  @GetMapping("/invoices")
+  public ResponseEntity<Page<InvoiceDTOResponse>> findAll(
+    @PageableDefault(size = 5, sort = "paidAt", direction = Sort.Direction.DESC)
+    Pageable pageable
+  ) {
+    return ResponseEntity.ok(invoiceService.findAll(pageable));
+  }
+
+  @GetMapping("/invoices/paid")
+  public ResponseEntity<Page<PaidInvoiceDTOResponse>> findPaid(
+    @PageableDefault(size = 5, sort = "paidAt", direction = Sort.Direction.DESC)
+    Pageable pageable
+  ) {
+      return ResponseEntity.ok(invoiceService.findPaid(pageable));
+  }
+
+  @GetMapping("/facturation")
+  public ResponseEntity<Page<PaidInvoiceDTOResponse>> facturation(
+    @RequestParam(required = false) String search,
+    @PageableDefault(size = 5,  sort = "paidAt", direction = Sort.Direction.DESC)
+    Pageable pageable
+  ) {
+    return ResponseEntity.ok(invoiceService.findPaid(search, pageable));
+  }
+  
 }

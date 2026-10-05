@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +39,8 @@ class AuthIntegrationTest {
     private RoleRepository roleRepository;
     @Autowired
     private JwtService jwtService;
+    @Autowired 
+    private PasswordEncoder passwordEncoder;
 
 
     @Value("/${api-endpoint}")
@@ -56,7 +59,7 @@ class AuthIntegrationTest {
 
         user = new UserEntity();
         user.setEmail("login-test@test.com");
-        user.setPassword("correct-password"); // TODO: change with Hash when we will implement BCryptPasswordEncoder
+        user.setPassword(passwordEncoder.encode("correct-password")); 
         user.setFirstName("Test");
         user.setLastName("User");
         user.setAddress("Test address");
@@ -80,6 +83,19 @@ class AuthIntegrationTest {
             .andExpect(cookie().exists("access_token"))
             .andExpect(cookie().exists("refresh_token"))
             .andExpect(jsonPath("$.email").value("login-test@test.com"));
+    }
+
+         @Test
+    void login_withoutCsrfToken_returns200() throws Exception {
+        String body = """
+            {"email":"login-test@test.com","password":"correct-password"}
+            """;
+
+        mockMvc.perform(post(apiEndpoint + "/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isOk())
+            .andExpect(cookie().exists("access_token"));
     }
 
     @Test
@@ -119,10 +135,10 @@ class AuthIntegrationTest {
     }
 
     @Test
-    void logout_withoutToken_returnsForbidden() throws Exception {
+    void logout_withoutToken_returnsUnauthorized() throws Exception {
         // /auth/logout не в publicURIList и не имеет permitAll в SecurityConfiguration
         mockMvc.perform(get(apiEndpoint + "/auth/logout"))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isUnauthorized());
     }
 
     @Test
