@@ -15,6 +15,7 @@ import jakarta.persistence.Table;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity 
 @Table(name = "orders_products")
@@ -38,11 +39,17 @@ public class OrderProductEntity {
     @Column(name = "quantity", nullable = false)
     private BigDecimal quantity;
 
+   // Precio en el momento del pedido: el ticket no cambia si luego cambia el producto
+    @Setter
+    @Column  (name = "unit_price", nullable = false, precision = 10, scale = 2)
+    private BigDecimal unitPrice;
+
     @Builder 
     public OrderProductEntity(OrderEntity order, ProductEntity product, BigDecimal quantity) {
         this.order = order;
         this.product = product;
         this.quantity = quantity;
-    }
 
+
+}
 }

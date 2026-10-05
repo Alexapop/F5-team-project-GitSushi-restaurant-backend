@@ -51,9 +51,9 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    void administration_withoutToken_returns403() throws Exception {
+    void administration_withoutToken_returns401() throws Exception {
         mockMvc.perform(get(apiEndpoint + "/products/administration"))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isUnauthorized());
     }
 
     @Test

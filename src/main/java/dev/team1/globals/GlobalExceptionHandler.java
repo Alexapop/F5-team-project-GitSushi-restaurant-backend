@@ -15,9 +15,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 import dev.team1.invoices.exceptions.InvoiceException;
 import dev.team1.invoices.exceptions.InvoiceExceptionNotFound;
+import dev.team1.offers.exceptions.OfferException;
 import dev.team1.products.exceptions.ProductException;
 import dev.team1.products.exceptions.ProductExceptionConflict;
 import dev.team1.products.exceptions.ProductExceptionNotFound;
+import dev.team1.security.exceptions.JwtNoExistException;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 
@@ -47,6 +49,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(exception.getMessage());
     }
 
+    @ExceptionHandler(OfferException.class)
+    public ResponseEntity<String> handleOfferException(OfferException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Unable to get offers: " + exception.getMessage());
+    }
+
     @ExceptionHandler(InvoiceException.class)
     public ResponseEntity<String> handleInvoiceAny(InvoiceException exception) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(exception.getMessage());
@@ -71,6 +78,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleBadCredentialsException(
             BadCredentialsException exception) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(exception.getMessage());
+    }
+
+    @ExceptionHandler(JwtNoExistException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ResponseEntity<String> handleJwtNoExistException(JwtNoExistException exception) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authentication failed: " + exception.getMessage());
     }
 
     @ExceptionHandler(ExpiredJwtException.class)

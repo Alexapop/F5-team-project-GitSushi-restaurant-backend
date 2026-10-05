@@ -1,21 +1,49 @@
 package dev.team1.invoices;
 
+import java.time.Clock;
+import java.time.Instant;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import dev.team1.contracts.IInvoiceService;
+import dev.team1.enums.OrderStatus;
 import dev.team1.invoices.dtos.InvoiceDTORequest;
 import dev.team1.invoices.dtos.InvoiceDTOResponse;
+import dev.team1.invoices.dtos.PaidInvoiceDTOResponse;
 import dev.team1.invoices.exceptions.InvoiceException;
 import dev.team1.invoices.exceptions.InvoiceExceptionNotFound;
 import dev.team1.mappers.InvoiceMapper;
+import dev.team1.orders.OrderEntity;
 
 @Service
 public class InvoiceService implements IInvoiceService {
   private final InvoiceRepository invoiceRepository;
+  // Reloj en hora de España (ReportsConfiguration); en los tests se fija la hora.
+  private final Clock clock;
 
-  public InvoiceService(InvoiceRepository invoiceRepository) {
+  public InvoiceService(InvoiceRepository invoiceRepository, Clock clock) {
     this.invoiceRepository = invoiceRepository;
+    this.clock = clock;
+  }
+
+  // GS-51: al cobrarse un pedido se genera su factura, una sola por pedido.
+  @Override
+  @Transactional
+  public void createForPaidOrder(OrderEntity order) {
+    if (invoiceRepository.existsByOrder_Id(order.getId())) {
+      return;
+    }
+
+    InvoiceEntity invoice = InvoiceEntity.builder()
+        .amount(order.getTotal())
+        .paidAt(Instant.now(clock))
+        .build();
+    invoice.setOrder(order);
+
+    invoiceRepository.save(invoice);
   }
 
   @Override
@@ -43,4 +71,80 @@ public class InvoiceService implements IInvoiceService {
     return InvoiceMapper.toDTO(invoice);
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public Page<InvoiceDTOResponse> findAll(Pageable pageable) {
+    Page<InvoiceEntity> invoices = invoiceRepository.findAll(pageable);
+    if (invoices.getTotalElements() == 0) {
+      throw new InvoiceExceptionNotFound("Not invoices found.");
+    }
+
+    return invoices.map(InvoiceMapper::toDTO);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Page<PaidInvoiceDTOResponse> findPaid(Pageable pageable) {
+    Page<InvoiceEntity> paidInvoices = invoiceRepository
+      .findByOrder_Status(OrderStatus.PAID, pageable);
+    if (paidInvoices.getTotalElements() == 0) {
+      throw new InvoiceExceptionNotFound("Not paid invoices found.");
+    }
+
+    return paidInvoices.map(InvoiceMapper::toPaidDTO);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public PaidInvoiceDTOResponse findPaidById(Long id) {
+    InvoiceEntity invoice = invoiceRepository
+      .findByIdAndOrder_Status(id, OrderStatus.PAID)
+      .orElseThrow(() -> new InvoiceExceptionNotFound(
+        "Paid invoice " + id + " not found."));
+
+    return InvoiceMapper.toPaidDTO(invoice);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Page<PaidInvoiceDTOResponse> findPaid(String search, Pageable pageable) {
+    String customerSearch = search == null ? null : search.trim();
+    if (customerSearch != null && customerSearch.isEmpty()) {
+      customerSearch = null;
+    }
+
+    Long invoiceId = parseLongOrNull(customerSearch);
+    Integer tableNumber = parseIntegerOrNull(customerSearch);
+
+    // Sin resultados se devuelve la página vacía: no es un error.
+    Page<InvoiceEntity> paidInvoices = invoiceRepository.searchPaidInvoices(
+        invoiceId,
+        tableNumber,
+        customerSearch,
+        pageable);
+
+    return paidInvoices.map(InvoiceMapper::toPaidDTO);
+  }
+
+  private Long parseLongOrNull(String value) {
+    if (value == null) {
+      return null;
+    }
+    try {
+      return Long.valueOf(value);
+    } catch (NumberFormatException exception) {
+      return null;
+    }
+  }
+
+  private Integer parseIntegerOrNull(String value) {
+    if (value == null) {
+      return null;
+    }
+    try {
+      return Integer.valueOf(value);
+    } catch (NumberFormatException exception) {
+      return null;
+    }
+  }
 }

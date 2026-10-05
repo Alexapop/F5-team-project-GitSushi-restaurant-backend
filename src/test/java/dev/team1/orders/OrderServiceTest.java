@@ -1,7 +1,10 @@
 package dev.team1.orders;
 
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import dev.team1.orders.dtos.PendingDeliveryDTOResponse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -9,12 +12,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,22 +35,95 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import dev.team1.contracts.IInvoiceService;
+import dev.team1.delivery.dtos.DeliveryAddressDTORequest;
+import dev.team1.delivery.dtos.DeliveryConfirmationDTORequest;
+import dev.team1.delivery.dtos.DeliveryMetricsDTOResponse;
 import dev.team1.enums.OrderChannel;
 import dev.team1.enums.OrderStatus;
 import dev.team1.enums.PaymentMethod;
 import dev.team1.enums.PaymentStatus;
-import dev.team1.orders.dtos.KitchenOrderDTOResponse;
+import dev.team1.kitchen.dtos.KitchenChannelCountsDTOResponse;
+import dev.team1.kitchen.dtos.KitchenMetricsDTOResponse;
+import dev.team1.kitchen.dtos.KitchenOrderDTOResponse;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import dev.team1.orders.dtos.OrderHistoryDTOResponse;
+import dev.team1.orders.dtos.RepeatOrderItemDTOResponse;
 import dev.team1.orders_products.OrderProductEntity;
-import dev.team1.orders.dtos.KitchenMetricsDTOResponse;
 import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
 import dev.team1.tables.TableEntity;
 import dev.team1.tables.TableRepository;
+import dev.team1.users.UserEntity;
+import dev.team1.users.UserRepository;
+import dev.team1.mail.MailService;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
+
+    @Test
+    void getActiveKitchenOrdersMarksNoteAsPriority() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setChefNote("Alergia al sésamo");
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of(order));
+
+        List<KitchenOrderDTOResponse> responses = service.getActiveKitchenOrders();
+
+        assertEquals(1, responses.size());
+        assertEquals("Alergia al sésamo", responses.get(0).chefNote());
+        assertEquals(true, responses.get(0).hasPriorityNote());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "   ", "\t", "\n"})
+    void getActiveKitchenOrdersDoesNotMarkMissingNoteAsPriority(String chefNote) {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setChefNote(chefNote);
+        when(orderRepository.findByStatusIn(any())).thenReturn(List.of(order));
+
+        List<KitchenOrderDTOResponse> responses = service.getActiveKitchenOrders();
+
+        assertEquals(1, responses.size());
+        assertNull(responses.get(0).chefNote());
+        assertEquals(false, responses.get(0).hasPriorityNote());
+    }
+
+    @Test
+    void updateKitchenStatusToReadyPreservesNoteForPickup() {
+        String chefNote = "Alergia al sésamo";
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setChefNote(chefNote);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of(order));
+
+        KitchenOrderDTOResponse response = service.updateKitchenStatus(1L, OrderStatus.READY);
+
+        assertEquals(OrderStatus.READY, response.status());
+        assertEquals(chefNote, response.chefNote());
+        assertEquals(true, response.hasPriorityNote());
+        ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(captor.capture());
+        assertEquals(OrderStatus.READY, captor.getValue().getStatus());
+        assertEquals(chefNote, captor.getValue().getChefNote());
+
+        List<OrderDTOResponse> pickupOrders = service.getByStatus(OrderStatus.READY);
+
+        assertEquals(1, pickupOrders.size());
+        assertEquals(chefNote, pickupOrders.get(0).chefNote());
+    }
 
     @Mock
     private OrderRepository orderRepository;
@@ -52,6 +133,15 @@ class OrderServiceTest {
 
     @Mock
     private TableRepository tableRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private MailService mailService;
+
+    @Mock
+    private IInvoiceService invoiceService;
 
     @InjectMocks
     private OrderService service;
@@ -64,9 +154,9 @@ class OrderServiceTest {
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
-                "No onions", OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE);
+                "No onions", OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE, null);
 
-        OrderDTOResponse response = service.createOrder(request, "tablet-12");
+        OrderDTOResponse response = service.createOrder(request, "tablet-12", null);
 
         assertEquals(new BigDecimal("20.00"), response.subtotal());
         assertEquals(new BigDecimal("0.00"), response.discountAmount());
@@ -93,9 +183,9 @@ class OrderServiceTest {
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
-                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
+                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE, null);
 
-        OrderDTOResponse response = service.createOrder(request, "tablet-12");
+        OrderDTOResponse response = service.createOrder(request, "tablet-12", null);
 
         assertEquals(new BigDecimal("20.00"), response.subtotal());
         assertEquals(new BigDecimal("2.00"), response.discountAmount());
@@ -111,7 +201,7 @@ class OrderServiceTest {
         OrderDTORequest request = onsiteRequest();
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> service.createOrder(request, null));
+                () -> service.createOrder(request, null, null));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         verify(orderRepository, never()).save(any(OrderEntity.class));
@@ -122,7 +212,7 @@ class OrderServiceTest {
         OrderDTORequest request = onsiteRequest();
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> service.createOrder(request, "   "));
+                () -> service.createOrder(request, "   ", null));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         verify(orderRepository, never()).save(any(OrderEntity.class));
@@ -134,7 +224,37 @@ class OrderServiceTest {
                 .thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> service.createOrder(onsiteRequest(), "unknown-device"));
+                () -> service.createOrder(onsiteRequest(), "unknown-device", null));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void createOnsiteOrderUsesTableNumberBeforeDevice() {
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product(null)));
+        when(tableRepository.findByTableNumber(7)).thenReturn(Optional.of(table(7)));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE, null, 7);
+
+        OrderDTOResponse response = service.createOrder(request, "unlinked-browser", null);
+
+        assertEquals(7, response.tableNumber());
+        verify(tableRepository, never()).findByDeviceIdentifier(any());
+    }
+
+    @Test
+    void createOnsiteOrderRejectsUnknownTableNumberWithoutSaving() {
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product(null)));
+        when(tableRepository.findByTableNumber(99)).thenReturn(Optional.empty());
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE, null, 99);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.createOrder(request, null, null));
 
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
         verify(orderRepository, never()).save(any(OrderEntity.class));
@@ -147,15 +267,51 @@ class OrderServiceTest {
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, OrderChannel.ONLINE, PaymentMethod.CASH_ON_DELIVERY);
+                null, OrderChannel.ONLINE, PaymentMethod.CASH_ON_DELIVERY, deliveryAddress());
 
-        OrderDTOResponse response = service.createOrder(request, null);
+        OrderDTOResponse response = service.createOrder(request, null, null);
 
         assertEquals(OrderChannel.ONLINE, response.channel());
         assertEquals(null, response.tableNumber());
         ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
         verify(orderRepository).save(captor.capture());
         assertEquals(null, captor.getValue().getTable());
+        assertNull(captor.getValue().getUser());
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void createOrderAssociatesAuthenticatedUser() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = new UserEntity();
+        user.setId(userId);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product(null)));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(call -> call.getArgument(0));
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD, deliveryAddress());
+
+        service.createOrder(request, null, userId);
+
+        ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(captor.capture());
+        assertSame(user, captor.getValue().getUser());
+    }
+
+    @Test
+    void createOrderRejectsMissingAuthenticatedUser() {
+        UUID userId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD, deliveryAddress());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.createOrder(request, null, userId));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+        verifyNoInteractions(orderRepository, productRepository, tableRepository);
     }
 
     @ParameterizedTest
@@ -212,9 +368,9 @@ class OrderServiceTest {
 
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, OrderChannel.ONSITE, paymentMethod);
+                null, OrderChannel.ONSITE, paymentMethod, null);
 
-        OrderDTOResponse response = service.createOrder(request, "tablet-12");
+        OrderDTOResponse response = service.createOrder(request, "tablet-12", null);
 
         ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
         verify(orderRepository).save(captor.capture());
@@ -225,6 +381,51 @@ class OrderServiceTest {
         assertEquals(OrderStatus.PLACED, savedOrder.getStatus());
         assertEquals(expectedPaymentStatus, response.paymentStatus());
         assertEquals(OrderStatus.PLACED, response.status());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "ONLINE_CARD, PENDING_ONLINE_PAYMENT",
+            "CASH_ON_DELIVERY, PENDING_CASH_ON_DELIVERY"
+    })
+    void createOnlineOrderSavesAndReturnsPendingPaymentStatus(
+            PaymentMethod paymentMethod, PaymentStatus expectedPaymentStatus) {
+        when(productRepository.findById(2L)).thenReturn(Optional.of(product(null)));
+        when(orderRepository.save(any(OrderEntity.class)))
+                .thenAnswer(call -> call.getArgument(0));
+
+        OrderDTORequest request = new OrderDTORequest(
+                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                null, OrderChannel.ONLINE, paymentMethod, deliveryAddress());
+
+        OrderDTOResponse response = service.createOrder(request, null, null);
+
+        ArgumentCaptor<OrderEntity> captor = ArgumentCaptor.forClass(OrderEntity.class);
+        verify(orderRepository).save(captor.capture());
+        OrderEntity savedOrder = captor.getValue();
+
+        assertEquals(paymentMethod, savedOrder.getPaymentMethod());
+        assertEquals(expectedPaymentStatus, savedOrder.getPaymentStatus());
+        assertEquals(OrderStatus.PLACED, savedOrder.getStatus());
+        assertEquals(expectedPaymentStatus, response.paymentStatus());
+        assertEquals(OrderStatus.PLACED, response.status());
+    }
+
+    @Test
+    void markAsPaidClearsPendingOnlinePaymentStatus() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PLACED);
+        order.setChannel(OrderChannel.ONLINE);
+        order.setPaymentMethod(PaymentMethod.ONLINE_CARD);
+        order.setPaymentStatus(PaymentStatus.PENDING_ONLINE_PAYMENT);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        OrderDTOResponse response = service.markAsPaid(1L);
+
+        assertEquals(OrderStatus.PAID, response.status());
+        assertNull(order.getPaymentStatus());
+        assertNull(response.paymentStatus());
     }
 
     @ParameterizedTest
@@ -243,7 +444,7 @@ class OrderServiceTest {
         order.setOrderProducts(new ArrayList<>());
 
         List<OrderStatus> activeStatuses = List.of(
-                OrderStatus.PLACED, OrderStatus.PROCESSING, OrderStatus.DELAYED);
+                OrderStatus.PLACED, OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.DELAYED);
         when(orderRepository.findByStatusIn(activeStatuses)).thenReturn(List.of(order));
 
         List<KitchenOrderDTOResponse> responses = service.getActiveKitchenOrders();
@@ -264,7 +465,11 @@ class OrderServiceTest {
         when(productRepository.findById(2L)).thenReturn(Optional.of(product));
         return new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
+                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE, null);
+    }
+
+    private DeliveryAddressDTORequest deliveryAddress() {
+        return new DeliveryAddressDTORequest("Calle Mayor 1", "Madrid", "28001", "Tercer piso");
     }
 
     private TableEntity table(int tableNumber) {
@@ -286,7 +491,7 @@ class OrderServiceTest {
         order.setOrderProducts(List.of(op));
 
         when(orderRepository.findByStatusIn(
-                List.of(OrderStatus.PLACED, OrderStatus.PROCESSING, OrderStatus.DELAYED)))
+                List.of(OrderStatus.PLACED, OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.DELAYED)))
                 .thenReturn(List.of(order));
 
         List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders();
@@ -523,13 +728,823 @@ class OrderServiceTest {
             OrderChannel channel, PaymentMethod paymentMethod) {
         OrderDTORequest request = new OrderDTORequest(
                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                null, channel, paymentMethod);
+                null, channel, paymentMethod, null);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> service.createOrder(request, "tablet-12"));
+                () -> service.createOrder(request, "tablet-12", null));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         verifyNoInteractions(productRepository, tableRepository, orderRepository);
+    }
+
+        @Test
+    void getDeliveryMetricsReturnsCorrectCounts() {
+        when(orderRepository.findByStatus(OrderStatus.READY))
+                .thenReturn(List.of(new OrderEntity(), new OrderEntity()));
+        when(orderRepository.findByStatus(OrderStatus.ONTHEWAY))
+                .thenReturn(List.of(new OrderEntity()));
+
+        OrderEntity delivered1 = new OrderEntity();
+        delivered1.setCreatedAt(LocalDateTime.now().minusMinutes(30));
+        delivered1.setDeliveredAt(LocalDateTime.now().minusMinutes(10));
+
+        OrderEntity delivered2 = new OrderEntity();
+        delivered2.setCreatedAt(LocalDateTime.now().minusMinutes(50));
+        delivered2.setDeliveredAt(LocalDateTime.now().minusMinutes(30));
+
+        when(orderRepository.findByStatusAndDeliveredAtGreaterThanEqual(any(), any()))
+                .thenReturn(List.of(delivered1, delivered2));
+
+        DeliveryMetricsDTOResponse metrics = service.getDeliveryMetrics();
+
+        assertEquals(2, metrics.readyCount());
+        assertEquals(1, metrics.inTransitCount());
+        assertEquals(2, metrics.deliveredTodayCount());
+        assertEquals(20.0, metrics.averageDeliveryMinutes(), 0.5);
+    }
+
+    @Test
+    void getDeliveryMetricsReturnsZeroWhenNoOrders() {
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of());
+        when(orderRepository.findByStatus(OrderStatus.ONTHEWAY)).thenReturn(List.of());
+        when(orderRepository.findByStatusAndDeliveredAtGreaterThanEqual(any(), any()))
+                .thenReturn(List.of());
+
+        DeliveryMetricsDTOResponse metrics = service.getDeliveryMetrics();
+
+        assertEquals(0, metrics.readyCount());
+        assertEquals(0, metrics.inTransitCount());
+        assertEquals(0, metrics.deliveredTodayCount());
+        assertEquals(0.0, metrics.averageDeliveryMinutes());
+    }
+
+        @Test
+    void getDeliveryMetricsCalculatesAverageForSingleDelivery() {
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of());
+        when(orderRepository.findByStatus(OrderStatus.ONTHEWAY)).thenReturn(List.of());
+
+        OrderEntity delivered = new OrderEntity();
+        delivered.setCreatedAt(LocalDateTime.now().minusMinutes(25));
+        delivered.setDeliveredAt(LocalDateTime.now());
+
+        when(orderRepository.findByStatusAndDeliveredAtGreaterThanEqual(any(), any()))
+                .thenReturn(List.of(delivered));
+
+        DeliveryMetricsDTOResponse metrics = service.getDeliveryMetrics();
+
+        assertEquals(1, metrics.deliveredTodayCount());
+        assertEquals(25.0, metrics.averageDeliveryMinutes(), 0.5);
+    }
+
+    @Test
+    void getDeliveryMetricsCountsOnlyReadyOrders() {
+        when(orderRepository.findByStatus(OrderStatus.READY))
+                .thenReturn(List.of(new OrderEntity(), new OrderEntity(), new OrderEntity()));
+        when(orderRepository.findByStatus(OrderStatus.ONTHEWAY)).thenReturn(List.of());
+        when(orderRepository.findByStatusAndDeliveredAtGreaterThanEqual(any(), any()))
+                .thenReturn(List.of());
+
+        DeliveryMetricsDTOResponse metrics = service.getDeliveryMetrics();
+
+        assertEquals(3, metrics.readyCount());
+        assertEquals(0, metrics.inTransitCount());
+        assertEquals(0, metrics.deliveredTodayCount());
+    }
+
+    @Test
+    void getDeliveryMetricsCountsOnlyInTransitOrders() {
+        when(orderRepository.findByStatus(OrderStatus.READY)).thenReturn(List.of());
+        when(orderRepository.findByStatus(OrderStatus.ONTHEWAY))
+                .thenReturn(List.of(new OrderEntity(), new OrderEntity()));
+        when(orderRepository.findByStatusAndDeliveredAtGreaterThanEqual(any(), any()))
+                .thenReturn(List.of());
+
+        DeliveryMetricsDTOResponse metrics = service.getDeliveryMetrics();
+
+        assertEquals(0, metrics.readyCount());
+        assertEquals(2, metrics.inTransitCount());
+        assertEquals(0, metrics.deliveredTodayCount());
+    }
+
+    @Test
+    void getDeliveryMetricsQueriesFromStartOfToday() {
+        when(orderRepository.findByStatus(any())).thenReturn(List.of());
+        when(orderRepository.findByStatusAndDeliveredAtGreaterThanEqual(any(), any()))
+                .thenReturn(List.of());
+
+        service.getDeliveryMetrics();
+
+        ArgumentCaptor<LocalDateTime> sinceCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(orderRepository).findByStatusAndDeliveredAtGreaterThanEqual(
+                org.mockito.ArgumentMatchers.eq(OrderStatus.DELIVERED), sinceCaptor.capture());
+
+        assertEquals(LocalDate.now().atStartOfDay(), sinceCaptor.getValue());
+    }
+    @Test
+    void markAsDeliveredUpdatesStatusAndSetsDeliveredAt() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        order.setPaymentMethod(PaymentMethod.CARD_ONSITE);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        OrderDTOResponse response = service.markAsDelivered(1L, null);
+
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+        assertEquals(OrderStatus.DELIVERED, response.status());
+        assertEquals(order.getDeliveredAt(), order.getDeliveredAt());
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void markAsDeliveredRejectsOrderNotOnTheWay() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsDelivered(1L, null));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void markAsDeliveredOrderNotFoundThrowsNotFound() {
+        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsDelivered(99L, null));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+    }
+
+    @Test
+    void markAsDeliveredRequiresCashConfirmationForCashOnDelivery() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        order.setPaymentMethod(PaymentMethod.CASH_ON_DELIVERY);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsDelivered(1L, null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void markAsDeliveredAcceptsCashOnDeliveryWithConfirmation() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        order.setPaymentMethod(PaymentMethod.CASH_ON_DELIVERY);
+        order.setPaymentStatus(PaymentStatus.PENDING_CASH_ON_DELIVERY);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        DeliveryConfirmationDTORequest request = new DeliveryConfirmationDTORequest(true);
+        OrderDTOResponse response = service.markAsDelivered(1L, request);
+
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+        assertEquals(OrderStatus.DELIVERED, response.status());
+        assertNull(order.getPaymentStatus());
+        assertNull(response.paymentStatus());
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void markAsDeliveredRejectsFalseCashCollectedForCashOnDelivery() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        order.setPaymentMethod(PaymentMethod.CASH_ON_DELIVERY);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        DeliveryConfirmationDTORequest request = new DeliveryConfirmationDTORequest(false);
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsDelivered(1L, request));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    static java.util.stream.Stream<
+        org.junit.jupiter.params.provider.Arguments> chefNoteCases() {
+
+    return java.util.stream.Stream.of(
+            org.junit.jupiter.params.provider.Arguments.of(
+                    "Sin wasabi", "Sin wasabi"),
+            org.junit.jupiter.params.provider.Arguments.of(
+                    null, null),
+            org.junit.jupiter.params.provider.Arguments.of(
+                    "", null),
+            org.junit.jupiter.params.provider.Arguments.of(
+                    "   ", null),
+            org.junit.jupiter.params.provider.Arguments.of(
+                    "<b>Sin wasabi</b>", "Sin wasabi"),
+            org.junit.jupiter.params.provider.Arguments.of(
+                    "<script>alert(1)</script>Sin wasabi", "Sin wasabi"),
+            org.junit.jupiter.params.provider.Arguments.of(
+                    "a".repeat(500), "a".repeat(500)));
+}
+
+@ParameterizedTest
+@MethodSource("chefNoteCases")
+void createOrderPreparesChefNote(String input, String expected) {
+    when(productRepository.findById(2L))
+            .thenReturn(Optional.of(product(null)));
+
+    when(orderRepository.save(any(OrderEntity.class)))
+            .thenAnswer(call -> call.getArgument(0));
+
+    OrderDTORequest request = new OrderDTORequest(
+            List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+            input,
+            OrderChannel.ONLINE,
+            PaymentMethod.ONLINE_CARD, deliveryAddress());
+
+    OrderDTOResponse response = service.createOrder(request, null, null);
+
+    ArgumentCaptor<OrderEntity> captor =
+            ArgumentCaptor.forClass(OrderEntity.class);
+
+    verify(orderRepository).save(captor.capture());
+
+    assertEquals(expected, captor.getValue().getChefNote());
+    assertEquals(expected, response.chefNote());
+}
+@Test
+void createOrderRejectsChefNoteLongerThan500Characters() {
+    OrderDTORequest request = new OrderDTORequest(
+            List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+            "a".repeat(501),
+            OrderChannel.ONLINE,
+            PaymentMethod.ONLINE_CARD, deliveryAddress());
+
+    ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> service.createOrder(request, null, null));
+
+    assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+
+    verifyNoInteractions(
+            orderRepository,
+            productRepository,
+            tableRepository,
+            userRepository);
+}
+
+    @Test
+    void assignDeliverymanSuccessAssignsOrderAndReturnsResponse() {
+        UUID deliverymanId = UUID.randomUUID();
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(deliverymanId);
+
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setChannel(OrderChannel.ONLINE);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(userRepository.findById(deliverymanId)).thenReturn(Optional.of(deliveryman));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        OrderDTOResponse response = service.assignDeliveryman(1L, deliverymanId);
+
+        assertSame(deliveryman, order.getDeliveryman());
+        assertEquals(OrderStatus.READY, response.status());
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void assignDeliverymanRejectsOrderNotReady() {
+        UUID deliverymanId = UUID.randomUUID();
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setChannel(OrderChannel.ONLINE);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.assignDeliveryman(1L, deliverymanId));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void assignDeliverymanRejectsOnsiteOrder() {
+        UUID deliverymanId = UUID.randomUUID();
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setChannel(OrderChannel.ONSITE);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.assignDeliveryman(1L, deliverymanId));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void assignDeliverymanRejectsAlreadyAssignedOrder() {
+        UUID deliverymanId = UUID.randomUUID();
+        UserEntity existingDeliveryman = new UserEntity();
+        existingDeliveryman.setId(UUID.randomUUID());
+
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setChannel(OrderChannel.ONLINE);
+        order.setDeliveryman(existingDeliveryman);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.assignDeliveryman(1L, deliverymanId));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void assignDeliverymanOrderNotFoundThrowsNotFound() {
+        UUID deliverymanId = UUID.randomUUID();
+        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.assignDeliveryman(99L, deliverymanId));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+    }
+
+    @Test
+    void assignDeliverymanRejectsUnknownDeliverymanWithUnauthorized() {
+        UUID deliverymanId = UUID.randomUUID();
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setChannel(OrderChannel.ONLINE);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(userRepository.findById(deliverymanId)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.assignDeliveryman(1L, deliverymanId));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
+    @Test
+    void assignDeliverymanHandlesOptimisticLockingConflict() {
+        UUID deliverymanId = UUID.randomUUID();
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(deliverymanId);
+
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setChannel(OrderChannel.ONLINE);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(userRepository.findById(deliverymanId)).thenReturn(Optional.of(deliveryman));
+        when(orderRepository.save(order))
+                .thenThrow(new ObjectOptimisticLockingFailureException(OrderEntity.class, 1L));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.assignDeliveryman(1L, deliverymanId));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+    }
+
+    @Test
+    void getPendingDeliveriesReturnsMappedList() {
+        UserEntity user = new UserEntity();
+        user.setAddress("Calle Mayor 1, Gijón");
+
+        OrderEntity order = new OrderEntity();
+        ReflectionTestUtils.setField(order, "id", 1L);
+        order.setUser(user);
+
+        when(orderRepository.findByStatusAndChannelAndDeliverymanIsNull(OrderStatus.READY, OrderChannel.ONLINE))
+                .thenReturn(List.of(order));
+
+        List<PendingDeliveryDTOResponse> result = service.getPendingDeliveries();
+
+        assertEquals(1, result.size());
+        assertEquals(1L, result.get(0).id());
+        assertEquals("Calle Mayor 1, Gijón", result.get(0).address());
+    }
+
+    @Test
+    void getPendingDeliveriesReturnsNullAddressWhenNoUser() {
+        OrderEntity order = new OrderEntity();
+        ReflectionTestUtils.setField(order, "id", 1L);
+
+        when(orderRepository.findByStatusAndChannelAndDeliverymanIsNull(OrderStatus.READY, OrderChannel.ONLINE))
+                .thenReturn(List.of(order));
+
+        List<PendingDeliveryDTOResponse> result = service.getPendingDeliveries();
+
+        assertEquals(1, result.size());
+        assertNull(result.get(0).address());
+    }
+
+    @Test
+    void getPendingDeliveriesReturnsEmptyListWhenNoOrders() {
+        when(orderRepository.findByStatusAndChannelAndDeliverymanIsNull(OrderStatus.READY, OrderChannel.ONLINE))
+                .thenReturn(List.of());
+
+        List<PendingDeliveryDTOResponse> result = service.getPendingDeliveries();
+
+        assertEquals(0, result.size());
+    }
+
+    // GS-689: filtro de comandas por canal y contadores
+    private static final List<OrderStatus> ACTIVE_KITCHEN_STATUSES = List.of(
+            OrderStatus.PLACED, OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.DELAYED);
+
+    private OrderEntity kitchenOrder(OrderChannel channel, OrderStatus status, PaymentMethod paymentMethod) {
+        OrderEntity order = new OrderEntity();
+        order.setChannel(channel);
+        order.setStatus(status);
+        order.setPaymentMethod(paymentMethod);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setOrderProducts(new ArrayList<>());
+        return order;
+    }
+
+    @Test
+    void getActiveKitchenOrdersFiltersOnlyOnsite() {
+        OrderEntity onsite = kitchenOrder(OrderChannel.ONSITE, OrderStatus.PROCESSING, PaymentMethod.CASH_ONSITE);
+        when(orderRepository.findByStatusInAndChannel(ACTIVE_KITCHEN_STATUSES, OrderChannel.ONSITE))
+                .thenReturn(List.of(onsite));
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders(OrderChannel.ONSITE);
+
+        assertEquals(1, result.size());
+        assertEquals("ONSITE", result.get(0).channel());
+        verify(orderRepository, never()).findByStatusIn(any());
+    }
+
+    @Test
+    void getActiveKitchenOrdersFiltersOnlyOnline() {
+        OrderEntity online = kitchenOrder(OrderChannel.ONLINE, OrderStatus.PAID, PaymentMethod.ONLINE_CARD);
+        when(orderRepository.findByStatusInAndChannel(ACTIVE_KITCHEN_STATUSES, OrderChannel.ONLINE))
+                .thenReturn(List.of(online));
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders(OrderChannel.ONLINE);
+
+        assertEquals(1, result.size());
+        assertEquals("ONLINE", result.get(0).channel());
+        verify(orderRepository, never()).findByStatusIn(any());
+    }
+
+    @Test
+    void getActiveKitchenOrdersOnlineExcludesOrdersAwaitingOnlinePayment() {
+        OrderEntity awaitingPayment = kitchenOrder(OrderChannel.ONLINE, OrderStatus.PLACED, PaymentMethod.ONLINE_CARD);
+        OrderEntity cashOnDelivery = kitchenOrder(OrderChannel.ONLINE, OrderStatus.PLACED, PaymentMethod.CASH_ON_DELIVERY);
+        when(orderRepository.findByStatusInAndChannel(ACTIVE_KITCHEN_STATUSES, OrderChannel.ONLINE))
+                .thenReturn(List.of(awaitingPayment, cashOnDelivery));
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders(OrderChannel.ONLINE);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getActiveKitchenOrdersWithoutChannelReturnsBothChannels() {
+        OrderEntity onsite = kitchenOrder(OrderChannel.ONSITE, OrderStatus.PROCESSING, PaymentMethod.CASH_ONSITE);
+        OrderEntity online = kitchenOrder(OrderChannel.ONLINE, OrderStatus.PAID, PaymentMethod.ONLINE_CARD);
+        when(orderRepository.findByStatusIn(ACTIVE_KITCHEN_STATUSES)).thenReturn(List.of(onsite, online));
+
+        List<KitchenOrderDTOResponse> result = service.getActiveKitchenOrders(null);
+
+        assertEquals(2, result.size());
+        assertEquals("ONSITE", result.get(0).channel());
+        assertEquals("ONLINE", result.get(1).channel());
+        verify(orderRepository, never()).findByStatusInAndChannel(any(), any());
+    }
+
+    @Test
+    void getKitchenChannelCountsReturnsCountsPerChannel() {
+        when(orderRepository.findByStatusIn(ACTIVE_KITCHEN_STATUSES)).thenReturn(List.of(
+                kitchenOrder(OrderChannel.ONSITE, OrderStatus.PROCESSING, PaymentMethod.CASH_ONSITE),
+                kitchenOrder(OrderChannel.ONSITE, OrderStatus.PLACED, PaymentMethod.CARD_ONSITE),
+                kitchenOrder(OrderChannel.ONLINE, OrderStatus.PAID, PaymentMethod.ONLINE_CARD),
+                kitchenOrder(OrderChannel.ONLINE, OrderStatus.PLACED, PaymentMethod.ONLINE_CARD)));
+
+        KitchenChannelCountsDTOResponse counts = service.getKitchenChannelCounts();
+
+        assertEquals(3, counts.total());
+        assertEquals(2, counts.inStore());
+        assertEquals(1, counts.delivery());
+    }
+
+    @Test
+    void getKitchenChannelCountsReturnsZerosWhenNoActiveOrders() {
+        when(orderRepository.findByStatusIn(ACTIVE_KITCHEN_STATUSES)).thenReturn(List.of());
+
+        KitchenChannelCountsDTOResponse counts = service.getKitchenChannelCounts();
+
+        assertEquals(0, counts.total());
+        assertEquals(0, counts.inStore());
+        assertEquals(0, counts.delivery());
+    }
+
+        @Test
+    void markAsInTransitUpdatesStatusAndSendsEmailToRegisteredUser() {
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(UUID.randomUUID());
+
+        UserEntity customer = new UserEntity();
+        customer.setEmail("customer@example.com");
+
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setDeliveryman(deliveryman);
+        order.setUser(customer);
+        order.setTicketAccessToken("abc-123");
+        ReflectionTestUtils.setField(order, "id", 1L);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        OrderDTOResponse response = service.markAsInTransit(1L);
+
+        assertEquals(OrderStatus.ONTHEWAY, order.getStatus());
+        assertEquals(OrderStatus.ONTHEWAY, response.status());
+        verify(mailService).sendOrderInTransitEmail("customer@example.com", 1L, "abc-123");
+    }
+
+    @Test
+    void markAsInTransitGuestOrderDoesNotSendEmail() {
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(UUID.randomUUID());
+
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setDeliveryman(deliveryman);
+        ReflectionTestUtils.setField(order, "id", 1L);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        service.markAsInTransit(1L);
+
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    void markAsInTransitUserWithoutEmailDoesNotSendEmail() {
+        UserEntity deliveryman = new UserEntity();
+        deliveryman.setId(UUID.randomUUID());
+
+        UserEntity customer = new UserEntity();
+        customer.setEmail(null);
+
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+        order.setDeliveryman(deliveryman);
+        order.setUser(customer);
+        ReflectionTestUtils.setField(order, "id", 1L);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        service.markAsInTransit(1L);
+
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    void markAsInTransitRejectsOrderNotReady() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.PROCESSING);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsInTransit(1L));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    void markAsInTransitRejectsOrderWithoutDeliveryman() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.READY);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsInTransit(1L));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    void markAsInTransitOrderNotFoundThrowsNotFound() {
+        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.markAsInTransit(99L));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+    }
+
+        // GS-582 / GS-583: historial de pedidos y repetición de pedido
+    private static final UUID CUSTOMER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private static final UUID OTHER_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+    private OrderEntity historyOrder(Long id, LocalDateTime createdAt, OrderProductEntity... lines) {
+        UserEntity customer = new UserEntity();
+        customer.setId(CUSTOMER_ID);
+        OrderEntity order = new OrderEntity();
+        ReflectionTestUtils.setField(order, "id", id);
+        order.setUser(customer);
+        order.setCreatedAt(createdAt);
+        order.setTotal(new BigDecimal("17.50"));
+        order.setOrderProducts(new ArrayList<>(List.of(lines)));
+        return order;
+    }
+
+    private OrderProductEntity historyLine(Long productId, String name, String currentPrice, String paidPrice,
+            int quantity, boolean available) {
+        ProductEntity product = new ProductEntity(productId, name, null, "desc", "img.png",
+                new BigDecimal(currentPrice), null, available, false, new ArrayList<>());
+        OrderProductEntity line = OrderProductEntity.builder()
+                .product(product).quantity(new BigDecimal(quantity)).build();
+        line.setUnitPrice(new BigDecimal(paidPrice));
+        return line;
+    }
+
+    @Test
+    void getOrderHistoryReturnsOrdersInRepositoryOrderMappedToDTO() {
+        Pageable pageable = PageRequest.of(0, 3);
+        OrderEntity newest = historyOrder(105L, LocalDateTime.of(2026, 9, 20, 21, 10),
+                historyLine(3L, "Kaisen Init", "7.00", "6.50", 2, true));
+        OrderEntity oldest = historyOrder(101L, LocalDateTime.of(2026, 8, 22, 14, 5),
+                historyLine(12L, "Gunkan Push", "5.50", "5.50", 1, false));
+        when(orderRepository.findByUser_IdOrderByCreatedAtDesc(CUSTOMER_ID, pageable))
+                .thenReturn(new PageImpl<>(List.of(newest, oldest), pageable, 2));
+
+        Page<OrderHistoryDTOResponse> result = service.getOrderHistory(CUSTOMER_ID, CUSTOMER_ID, false, pageable);
+
+        assertEquals(2, result.getTotalElements());
+        assertEquals(105L, result.getContent().get(0).id());
+        assertEquals(101L, result.getContent().get(1).id());
+        OrderHistoryDTOResponse first = result.getContent().get(0);
+        assertEquals(LocalDateTime.of(2026, 9, 20, 21, 10), first.date());
+        assertEquals(new BigDecimal("17.50"), first.total());
+        assertEquals(3L, first.items().get(0).productId());
+        assertEquals("Kaisen Init", first.items().get(0).name());
+        assertEquals(2, first.items().get(0).quantity());
+        assertEquals(new BigDecimal("6.50"), first.items().get(0).price());
+        assertEquals(true, first.items().get(0).available());
+        assertEquals(false, result.getContent().get(1).items().get(0).available());
+    }
+
+    @Test
+    void getOrderHistoryKeepsPaginationInfo() {
+        Pageable pageable = PageRequest.of(1, 3);
+        when(orderRepository.findByUser_IdOrderByCreatedAtDesc(CUSTOMER_ID, pageable))
+                .thenReturn(new PageImpl<>(List.of(historyOrder(102L, LocalDateTime.now())), pageable, 4));
+
+        Page<OrderHistoryDTOResponse> result = service.getOrderHistory(CUSTOMER_ID, CUSTOMER_ID, false, pageable);
+
+        assertEquals(1, result.getNumber());
+        assertEquals(2, result.getTotalPages());
+        assertEquals(4, result.getTotalElements());
+        assertEquals(1, result.getContent().size());
+    }
+
+    @Test
+    void getOrderHistoryReturnsEmptyPageWhenCustomerHasNoOrders() {
+        Pageable pageable = PageRequest.of(0, 3);
+        when(orderRepository.findByUser_IdOrderByCreatedAtDesc(CUSTOMER_ID, pageable))
+                .thenReturn(Page.empty(pageable));
+
+        Page<OrderHistoryDTOResponse> result = service.getOrderHistory(CUSTOMER_ID, CUSTOMER_ID, false, pageable);
+
+        assertEquals(0, result.getTotalElements());
+    }
+
+    @Test
+    void getOrderHistoryAllowsAdminToSeeAnotherCustomer() {
+        Pageable pageable = PageRequest.of(0, 3);
+        when(orderRepository.findByUser_IdOrderByCreatedAtDesc(CUSTOMER_ID, pageable))
+                .thenReturn(Page.empty(pageable));
+
+        service.getOrderHistory(CUSTOMER_ID, OTHER_ID, true, pageable);
+
+        verify(orderRepository).findByUser_IdOrderByCreatedAtDesc(CUSTOMER_ID, pageable);
+    }
+
+    @Test
+    void getOrderHistoryRejectsAnotherCustomer() {
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.getOrderHistory(CUSTOMER_ID, OTHER_ID, false, PageRequest.of(0, 3)));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+        verifyNoInteractions(orderRepository);
+    }
+
+    @Test
+    void getRepeatOrderItemsReturnsOnlyAvailableProductsWithCurrentPrice() {
+        OrderEntity order = historyOrder(105L, LocalDateTime.now(),
+                historyLine(3L, "Kaisen Init", "7.00", "6.50", 2, true),
+                historyLine(27L, "Caesar Commit", "6.90", "6.90", 1, false));
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(order));
+
+        List<RepeatOrderItemDTOResponse> result = service.getRepeatOrderItems(105L, CUSTOMER_ID, false);
+
+        assertEquals(1, result.size());
+        assertEquals(3L, result.get(0).productId());
+        assertEquals("Kaisen Init", result.get(0).name());
+        assertEquals(new BigDecimal("7.00"), result.get(0).price());
+        assertEquals(2, result.get(0).quantity());
+    }
+
+    @Test
+    void getRepeatOrderItemsReturnsEmptyListWhenNoProductIsAvailable() {
+        OrderEntity order = historyOrder(104L, LocalDateTime.now(),
+                historyLine(27L, "Caesar Commit", "6.90", "6.90", 1, false));
+        when(orderRepository.findById(104L)).thenReturn(Optional.of(order));
+
+        List<RepeatOrderItemDTOResponse> result = service.getRepeatOrderItems(104L, CUSTOMER_ID, false);
+
+        assertEquals(0, result.size());
+    }
+
+    @Test
+    void getRepeatOrderItemsThrowsNotFoundWhenOrderMissing() {
+        when(orderRepository.findById(999L)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.getRepeatOrderItems(999L, CUSTOMER_ID, false));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+    }
+
+    @Test
+    void getRepeatOrderItemsRejectsAnotherCustomer() {
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(historyOrder(105L, LocalDateTime.now())));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.getRepeatOrderItems(105L, OTHER_ID, false));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+    }
+
+    @Test
+    void getRepeatOrderItemsRejectsGuestOrder() {
+        OrderEntity guestOrder = historyOrder(106L, LocalDateTime.now());
+        guestOrder.setUser(null);
+        when(orderRepository.findById(106L)).thenReturn(Optional.of(guestOrder));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.getRepeatOrderItems(106L, CUSTOMER_ID, false));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+    }
+
+    @Test
+    void getRepeatOrderItemsAllowsAdmin() {
+        OrderEntity order = historyOrder(105L, LocalDateTime.now(),
+                historyLine(3L, "Kaisen Init", "7.00", "6.50", 2, true));
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(order));
+
+        List<RepeatOrderItemDTOResponse> result = service.getRepeatOrderItems(105L, OTHER_ID, true);
+
+        assertEquals(1, result.size());
+    }
+
+        @Test
+    void markAsDeliveredReturnsDeliveredAtInResponse() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        order.setPaymentMethod(PaymentMethod.CARD_ONSITE);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        OrderDTOResponse response = service.markAsDelivered(1L, null);
+
+        assertNotNull(response.deliveredAt());
+        assertEquals(order.getDeliveredAt(), response.deliveredAt());
+    }
+
+    @Test
+    void getByStatusReturnsNullDeliveredAtWhenOrderIsNotDelivered() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        when(orderRepository.findByStatus(OrderStatus.ONTHEWAY)).thenReturn(List.of(order));
+
+        List<OrderDTOResponse> result = service.getByStatus(OrderStatus.ONTHEWAY);
+
+        assertEquals(1, result.size());
+        assertNull(result.get(0).deliveredAt());
     }
 
 }

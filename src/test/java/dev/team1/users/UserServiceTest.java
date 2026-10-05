@@ -1,9 +1,11 @@
 package dev.team1.users;
 
 import dev.team1.mappers.UserMapper;
+import dev.team1.offers.OfferRepository;
+import dev.team1.products.ProductEntity;
+import dev.team1.products.ProductRepository;
 import dev.team1.roles.RoleEntity;
 import dev.team1.roles.RoleRepository;
-import dev.team1.security.PasswordEncoderPort;
 import dev.team1.users.dtos.UserRequestDTO;
 import dev.team1.users.dtos.UserResponseDTO;
 
@@ -15,9 +17,12 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.ArgumentMatchers;
+
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,14 +44,20 @@ class UserServiceTest {
     @Mock
     private RoleRepository roleRepository;
 
+    @Mock
+    private ProductRepository productRepository;
 
     @Mock
-    private PasswordEncoderPort passwordEncoderPort;
+    private OfferRepository offerRepository;
+
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     private MockedStatic<UserMapper> userMapperMock;
 
     @InjectMocks
-    private UserService userService;
+    private UserServiceImpl userService;
 
     private UserRequestDTO validRequest;
     private UserEntity mappedEntity;
@@ -95,14 +107,20 @@ class UserServiceTest {
             .email("ahmet@example.com")
             .build();
 
+        ProductEntity mockProduct = ProductEntity.builder()
+            .name("Sushi Git")
+            .price(BigDecimal.valueOf(7))
+            .build();
+
         when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
         userMapperMock.when(() -> UserMapper.toEntity(validRequest)).thenReturn(mappedEntity);
-        when(passwordEncoderPort.encode("secret123")).thenReturn("encoded-secret123");
+        when(passwordEncoder.encode("secret123")).thenReturn("encoded-secret123");
         when(userRepository.save(any(UserEntity.class))).thenReturn(savedEntity);
         userMapperMock.when(() -> UserMapper.toDTO(savedEntity)).thenReturn(expectedResponse);
         when(roleRepository.findByName("ROLE_CUSTOMER")).thenReturn(Optional.of(roleCustomer));
+        when(productRepository.findByName(ArgumentMatchers.anyString())).thenReturn(Optional.of(mockProduct));
 
-        UserResponseDTO result = userService.registerUser(validRequest);
+        UserResponseDTO result = userService.store(validRequest);
 
         assertThat(result).isNotNull();
         assertThat(result.id()).isEqualTo(mockId);
@@ -116,11 +134,11 @@ class UserServiceTest {
     void registerUser_withBlankFirstName_throwsException(String blankValue) {
         validRequest.setFirstName(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validRequest))
+        assertThatThrownBy(() -> userService.store(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("El nombre es obligatorio");
 
-        verifyNoInteractions(userRepository, passwordEncoderPort);
+        verifyNoInteractions(userRepository, passwordEncoder);
     }
 
     @ParameterizedTest
@@ -129,7 +147,7 @@ class UserServiceTest {
     void registerUser_withBlankLastName_throwsException(String blankValue) {
         validRequest.setLastName(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validRequest))
+        assertThatThrownBy(() -> userService.store(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("Los apellidos son obligatorios");
     }
@@ -139,7 +157,7 @@ class UserServiceTest {
     void registerUser_withBlankEmail_throwsException(String blankValue) {
         validRequest.setEmail(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validRequest))
+        assertThatThrownBy(() -> userService.store(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("El email es obligatorio");
     }
@@ -149,7 +167,7 @@ class UserServiceTest {
     void registerUser_withBlankAddress_throwsException(String blankValue) {
         validRequest.setAddress(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validRequest))
+        assertThatThrownBy(() -> userService.store(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("La dirección es obligatoria");
     }
@@ -159,7 +177,7 @@ class UserServiceTest {
     void registerUser_withBlankPostalCode_throwsException(String blankValue) {
         validRequest.setPostalCode(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validRequest))
+        assertThatThrownBy(() -> userService.store(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("El código postal es obligatorio");
     }
@@ -169,7 +187,7 @@ class UserServiceTest {
     void registerUser_withBlankCity_throwsException(String blankValue) {
         validRequest.setCity(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validRequest))
+        assertThatThrownBy(() -> userService.store(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("La ciudad es obligatoria");
     }
@@ -179,7 +197,7 @@ class UserServiceTest {
     void registerUser_withBlankPassword_throwsException(String blankValue) {
         validRequest.setPassword(blankValue);
 
-        assertThatThrownBy(() -> userService.registerUser(validRequest))
+        assertThatThrownBy(() -> userService.store(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("La contraseña es obligatoria");
     }
@@ -189,7 +207,7 @@ class UserServiceTest {
     void registerUser_withInvalidEmailFormat_throwsException(String invalidEmail) {
         validRequest.setEmail(invalidEmail);
 
-        assertThatThrownBy(() -> userService.registerUser(validRequest))
+        assertThatThrownBy(() -> userService.store(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("El formato del email no es válido");
     }
@@ -198,7 +216,7 @@ class UserServiceTest {
     void registerUser_withAlreadyRegisteredEmail_throwsException() {
         when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(true);
 
-        assertThatThrownBy(() -> userService.registerUser(validRequest))
+        assertThatThrownBy(() -> userService.store(validRequest))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("Ya existe una cuenta con este email");
 

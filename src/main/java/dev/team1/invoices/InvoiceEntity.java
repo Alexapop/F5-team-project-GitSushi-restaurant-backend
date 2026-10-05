@@ -18,12 +18,15 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity 
 @Table(name = "invoices")
 @Getter 
 @Setter 
+// JPA necesita un constructor vacío para leer las facturas de la base de datos.
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class InvoiceEntity {
 
   @Id

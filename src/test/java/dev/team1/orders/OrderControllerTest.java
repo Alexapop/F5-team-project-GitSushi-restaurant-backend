@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,8 @@ import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
 import dev.team1.security.JwtFilter;
 import dev.team1.security.SecurityConfiguration;
+import dev.team1.auth.CustomUserDetails;
+import dev.team1.users.UserEntity;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletRequest;
@@ -39,6 +42,7 @@ import static org.mockito.Mockito.doAnswer;
 import org.springframework.security.test.context.support.WithMockUser;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 
 @WebMvcTest(controllers = OrderController.class, properties = "api-endpoint=api/v1")
@@ -66,12 +70,12 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOrderReturnsCreatedOrder() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 2)),
-                                "No onions", OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE);
-                when(service.createOrder(request, "tablet-12")).thenReturn(response(OrderStatus.PLACED));
+                                "No onions", OrderChannel.ONSITE, PaymentMethod.CARD_ONSITE, null);
+                when(service.createOrder(request, "tablet-12", null)).thenReturn(response(OrderStatus.PLACED));
 
         mockMvc.perform(post("/api/v1/orders")
                         .with(csrf())
@@ -88,16 +92,16 @@ class OrderControllerTest {
                                 .andExpect(jsonPath("$.paymentStatus").value("PENDING_CARD_TERMINAL"))
                                 .andExpect(jsonPath("$.tableNumber").value(12))
                                 .andExpect(jsonPath("$.total").value(22.0));
-                verify(service).createOrder(request, "tablet-12");
+                verify(service).createOrder(request, "tablet-12", null);
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOrderPassesDeviceIdentifierToService() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
-                when(service.createOrder(request, "tablet-7")).thenReturn(response(OrderStatus.PLACED));
+                                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE, null);
+                when(service.createOrder(request, "tablet-7", null)).thenReturn(response(OrderStatus.PLACED));
 
         mockMvc.perform(post("/api/v1/orders")
                         .with(csrf())
@@ -108,16 +112,15 @@ class OrderControllerTest {
                                 """))
                 .andExpect(status().isCreated());
 
-                verify(service).createOrder(request, "tablet-7");
+                verify(service).createOrder(request, "tablet-7", null);
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
         void createOnlineOrderPassesMissingDeviceIdentifierToService() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD);
-                when(service.createOrder(request, null)).thenReturn(response(OrderStatus.PLACED));
+                                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD, null);
+                when(service.createOrder(request, null, null)).thenReturn(response(OrderStatus.PLACED));
 
         mockMvc.perform(post("/api/v1/orders")
                         .with(csrf())
@@ -127,16 +130,39 @@ class OrderControllerTest {
                                 """))
                 .andExpect(status().isCreated());
 
-                verify(service).createOrder(request, null);
+                verify(service).createOrder(request, null, null);
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        void createOrderPassesAuthenticatedUserIdToService() throws Exception {
+                UUID userId = UUID.randomUUID();
+                UserEntity customer = new UserEntity();
+                customer.setId(userId);
+                customer.setEmail("customer@example.com");
+                OrderDTORequest request = new OrderDTORequest(
+                                List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
+                                null, OrderChannel.ONLINE, PaymentMethod.ONLINE_CARD, null);
+                when(service.createOrder(request, null, userId)).thenReturn(response(OrderStatus.PLACED));
+
+                mockMvc.perform(post("/api/v1/orders")
+                                .with(user(new CustomUserDetails(customer)))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"items":[{"productId":2,"quantity":1}],"channel":"ONLINE","paymentMethod":"ONLINE_CARD"}
+                                        """))
+                        .andExpect(status().isCreated());
+
+                verify(service).createOrder(request, null, userId);
+        }
+
+        @Test
+        @WithMockUser(roles = "CUSTOMER")
         void createOnsiteOrderReturnsBadRequestWhenDeviceIdentifierIsMissing() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
-                when(service.createOrder(request, null)).thenThrow(new ResponseStatusException(
+                                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE, null);
+                when(service.createOrder(request, null, null)).thenThrow(new ResponseStatusException(
                                 org.springframework.http.HttpStatus.BAD_REQUEST, "Device identifier is required"));
 
         mockMvc.perform(post("/api/v1/orders")
@@ -147,16 +173,16 @@ class OrderControllerTest {
                                 """))
                 .andExpect(status().isBadRequest());
 
-                verify(service).createOrder(request, null);
+                verify(service).createOrder(request, null, null);
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOnsiteOrderReturnsNotFoundWhenDeviceIsUnknown() throws Exception {
                 OrderDTORequest request = new OrderDTORequest(
                                 List.of(new OrderDTORequest.OrderItemDTORequest(2L, 1)),
-                                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE);
-                when(service.createOrder(request, "unknown-device")).thenThrow(new ResponseStatusException(
+                                null, OrderChannel.ONSITE, PaymentMethod.CASH_ONSITE, null);
+                when(service.createOrder(request, "unknown-device", null)).thenThrow(new ResponseStatusException(
                                 org.springframework.http.HttpStatus.NOT_FOUND, "No table found for the given device."));
 
         mockMvc.perform(post("/api/v1/orders")
@@ -168,11 +194,11 @@ class OrderControllerTest {
                                 """))
                 .andExpect(status().isNotFound());
 
-                verify(service).createOrder(request, "unknown-device");
+                verify(service).createOrder(request, "unknown-device", null);
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOrderRejectsMissingChannel() throws Exception {
                 mockMvc.perform(post("/api/v1/orders")
                                 .with(csrf())
@@ -185,7 +211,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOrderRejectsMissingPaymentMethod() throws Exception {
                 mockMvc.perform(post("/api/v1/orders")
                                 .with(csrf())
@@ -198,7 +224,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void createOrderRejectsInvalidEnumValue() throws Exception {
                 mockMvc.perform(post("/api/v1/orders")
                                 .with(csrf())
@@ -224,7 +250,7 @@ class OrderControllerTest {
     }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void getByIdReturnsOrderStatus() throws Exception {
                 when(service.getById(1L)).thenReturn(response(OrderStatus.PAID));
 
@@ -236,7 +262,7 @@ class OrderControllerTest {
         }
 
         @Test
-        @WithMockUser("CUSTOMER")
+        @WithMockUser(roles = "CUSTOMER")
         void getByStatusReturnsPaidOrders() throws Exception {
                 when(service.getByStatus(OrderStatus.PAID))
                                 .thenReturn(List.of(response(OrderStatus.PAID)));
@@ -269,6 +295,28 @@ class OrderControllerTest {
                                 OrderChannel.ONSITE,
                                 PaymentMethod.CARD_ONSITE,
                                 12,
-                                paymentStatus);
+                                paymentStatus,
+                                null,
+                                "ticket-token",
+                                null);
         }
+        @Test
+    void createOrderRejectsChefNoteLongerThan500Characters() throws Exception {
+    String requestBody = """
+            {
+                "items": [{"productId": 2, "quantity": 1}],
+                "chefNote": "%s",
+                "channel": "ONLINE",
+                "paymentMethod": "ONLINE_CARD"
+            }
+            """.formatted("a".repeat(501));
+
+    mockMvc.perform(post("/api/v1/orders")
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isBadRequest());
+
+    verifyNoInteractions(service);
+}
 }
