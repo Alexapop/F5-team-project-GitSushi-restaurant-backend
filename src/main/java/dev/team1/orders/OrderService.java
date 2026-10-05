@@ -627,7 +627,8 @@ public class OrderService {
                 savedOrder.getTable() == null ? null : savedOrder.getTable().getTableNumber(),
                 savedOrder.getPaymentStatus(),
                 savedOrder.getDeliveryFee(),
-                savedOrder.getTicketAccessToken());
+                savedOrder.getTicketAccessToken(),
+                savedOrder.getDeliveredAt());
     }
 
     // GS-607: el repartidor marca el pedido como "en camino" y se notifica al cliente por email.

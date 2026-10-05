@@ -4,6 +4,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import dev.team1.orders.dtos.PendingDeliveryDTOResponse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -1488,6 +1489,32 @@ void createOrderRejectsChefNoteLongerThan500Characters() {
         List<RepeatOrderItemDTOResponse> result = service.getRepeatOrderItems(105L, OTHER_ID, true);
 
         assertEquals(1, result.size());
+    }
+
+        @Test
+    void markAsDeliveredReturnsDeliveredAtInResponse() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        order.setPaymentMethod(PaymentMethod.CARD_ONSITE);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+
+        OrderDTOResponse response = service.markAsDelivered(1L, null);
+
+        assertNotNull(response.deliveredAt());
+        assertEquals(order.getDeliveredAt(), response.deliveredAt());
+    }
+
+    @Test
+    void getByStatusReturnsNullDeliveredAtWhenOrderIsNotDelivered() {
+        OrderEntity order = new OrderEntity();
+        order.setStatus(OrderStatus.ONTHEWAY);
+        when(orderRepository.findByStatus(OrderStatus.ONTHEWAY)).thenReturn(List.of(order));
+
+        List<OrderDTOResponse> result = service.getByStatus(OrderStatus.ONTHEWAY);
+
+        assertEquals(1, result.size());
+        assertNull(result.get(0).deliveredAt());
     }
 
 }
