@@ -297,7 +297,8 @@ class OrderControllerTest {
                                 12,
                                 paymentStatus,
                                 null,
-                                "ticket-token");
+                                "ticket-token",
+                                null);
         }
         @Test
     void createOrderRejectsChefNoteLongerThan500Characters() throws Exception {
