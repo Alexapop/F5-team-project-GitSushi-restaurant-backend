@@ -34,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import dev.team1.contracts.IInvoiceService;
 import dev.team1.delivery.dtos.DeliveryAddressDTORequest;
 import dev.team1.delivery.dtos.DeliveryConfirmationDTORequest;
 import dev.team1.delivery.dtos.DeliveryMetricsDTOResponse;
@@ -46,6 +47,12 @@ import dev.team1.kitchen.dtos.KitchenMetricsDTOResponse;
 import dev.team1.kitchen.dtos.KitchenOrderDTOResponse;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import dev.team1.orders.dtos.OrderHistoryDTOResponse;
+import dev.team1.orders.dtos.RepeatOrderItemDTOResponse;
 import dev.team1.orders_products.OrderProductEntity;
 import dev.team1.products.ProductEntity;
 import dev.team1.products.ProductRepository;
@@ -131,6 +138,9 @@ class OrderServiceTest {
 
     @Mock
     private MailService mailService;
+
+    @Mock
+    private IInvoiceService invoiceService;
 
     @InjectMocks
     private OrderService service;
@@ -1311,6 +1321,173 @@ void createOrderRejectsChefNoteLongerThan500Characters() {
                 () -> service.markAsInTransit(99L));
 
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+    }
+
+        // GS-582 / GS-583: historial de pedidos y repetición de pedido
+    private static final UUID CUSTOMER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private static final UUID OTHER_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+    private OrderEntity historyOrder(Long id, LocalDateTime createdAt, OrderProductEntity... lines) {
+        UserEntity customer = new UserEntity();
+        customer.setId(CUSTOMER_ID);
+        OrderEntity order = new OrderEntity();
+        ReflectionTestUtils.setField(order, "id", id);
+        order.setUser(customer);
+        order.setCreatedAt(createdAt);
+        order.setTotal(new BigDecimal("17.50"));
+        order.setOrderProducts(new ArrayList<>(List.of(lines)));
+        return order;
+    }
+
+    private OrderProductEntity historyLine(Long productId, String name, String currentPrice, String paidPrice,
+            int quantity, boolean available) {
+        ProductEntity product = new ProductEntity(productId, name, null, "desc", "img.png",
+                new BigDecimal(currentPrice), null, available, false, new ArrayList<>());
+        OrderProductEntity line = OrderProductEntity.builder()
+                .product(product).quantity(new BigDecimal(quantity)).build();
+        line.setUnitPrice(new BigDecimal(paidPrice));
+        return line;
+    }
+
+    @Test
+    void getOrderHistoryReturnsOrdersInRepositoryOrderMappedToDTO() {
+        Pageable pageable = PageRequest.of(0, 3);
+        OrderEntity newest = historyOrder(105L, LocalDateTime.of(2026, 9, 20, 21, 10),
+                historyLine(3L, "Kaisen Init", "7.00", "6.50", 2, true));
+        OrderEntity oldest = historyOrder(101L, LocalDateTime.of(2026, 8, 22, 14, 5),
+                historyLine(12L, "Gunkan Push", "5.50", "5.50", 1, false));
+        when(orderRepository.findByUser_IdOrderByCreatedAtDesc(CUSTOMER_ID, pageable))
+                .thenReturn(new PageImpl<>(List.of(newest, oldest), pageable, 2));
+
+        Page<OrderHistoryDTOResponse> result = service.getOrderHistory(CUSTOMER_ID, CUSTOMER_ID, false, pageable);
+
+        assertEquals(2, result.getTotalElements());
+        assertEquals(105L, result.getContent().get(0).id());
+        assertEquals(101L, result.getContent().get(1).id());
+        OrderHistoryDTOResponse first = result.getContent().get(0);
+        assertEquals(LocalDateTime.of(2026, 9, 20, 21, 10), first.date());
+        assertEquals(new BigDecimal("17.50"), first.total());
+        assertEquals(3L, first.items().get(0).productId());
+        assertEquals("Kaisen Init", first.items().get(0).name());
+        assertEquals(2, first.items().get(0).quantity());
+        assertEquals(new BigDecimal("6.50"), first.items().get(0).price());
+        assertEquals(true, first.items().get(0).available());
+        assertEquals(false, result.getContent().get(1).items().get(0).available());
+    }
+
+    @Test
+    void getOrderHistoryKeepsPaginationInfo() {
+        Pageable pageable = PageRequest.of(1, 3);
+        when(orderRepository.findByUser_IdOrderByCreatedAtDesc(CUSTOMER_ID, pageable))
+                .thenReturn(new PageImpl<>(List.of(historyOrder(102L, LocalDateTime.now())), pageable, 4));
+
+        Page<OrderHistoryDTOResponse> result = service.getOrderHistory(CUSTOMER_ID, CUSTOMER_ID, false, pageable);
+
+        assertEquals(1, result.getNumber());
+        assertEquals(2, result.getTotalPages());
+        assertEquals(4, result.getTotalElements());
+        assertEquals(1, result.getContent().size());
+    }
+
+    @Test
+    void getOrderHistoryReturnsEmptyPageWhenCustomerHasNoOrders() {
+        Pageable pageable = PageRequest.of(0, 3);
+        when(orderRepository.findByUser_IdOrderByCreatedAtDesc(CUSTOMER_ID, pageable))
+                .thenReturn(Page.empty(pageable));
+
+        Page<OrderHistoryDTOResponse> result = service.getOrderHistory(CUSTOMER_ID, CUSTOMER_ID, false, pageable);
+
+        assertEquals(0, result.getTotalElements());
+    }
+
+    @Test
+    void getOrderHistoryAllowsAdminToSeeAnotherCustomer() {
+        Pageable pageable = PageRequest.of(0, 3);
+        when(orderRepository.findByUser_IdOrderByCreatedAtDesc(CUSTOMER_ID, pageable))
+                .thenReturn(Page.empty(pageable));
+
+        service.getOrderHistory(CUSTOMER_ID, OTHER_ID, true, pageable);
+
+        verify(orderRepository).findByUser_IdOrderByCreatedAtDesc(CUSTOMER_ID, pageable);
+    }
+
+    @Test
+    void getOrderHistoryRejectsAnotherCustomer() {
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.getOrderHistory(CUSTOMER_ID, OTHER_ID, false, PageRequest.of(0, 3)));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+        verifyNoInteractions(orderRepository);
+    }
+
+    @Test
+    void getRepeatOrderItemsReturnsOnlyAvailableProductsWithCurrentPrice() {
+        OrderEntity order = historyOrder(105L, LocalDateTime.now(),
+                historyLine(3L, "Kaisen Init", "7.00", "6.50", 2, true),
+                historyLine(27L, "Caesar Commit", "6.90", "6.90", 1, false));
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(order));
+
+        List<RepeatOrderItemDTOResponse> result = service.getRepeatOrderItems(105L, CUSTOMER_ID, false);
+
+        assertEquals(1, result.size());
+        assertEquals(3L, result.get(0).productId());
+        assertEquals("Kaisen Init", result.get(0).name());
+        assertEquals(new BigDecimal("7.00"), result.get(0).price());
+        assertEquals(2, result.get(0).quantity());
+    }
+
+    @Test
+    void getRepeatOrderItemsReturnsEmptyListWhenNoProductIsAvailable() {
+        OrderEntity order = historyOrder(104L, LocalDateTime.now(),
+                historyLine(27L, "Caesar Commit", "6.90", "6.90", 1, false));
+        when(orderRepository.findById(104L)).thenReturn(Optional.of(order));
+
+        List<RepeatOrderItemDTOResponse> result = service.getRepeatOrderItems(104L, CUSTOMER_ID, false);
+
+        assertEquals(0, result.size());
+    }
+
+    @Test
+    void getRepeatOrderItemsThrowsNotFoundWhenOrderMissing() {
+        when(orderRepository.findById(999L)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.getRepeatOrderItems(999L, CUSTOMER_ID, false));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+    }
+
+    @Test
+    void getRepeatOrderItemsRejectsAnotherCustomer() {
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(historyOrder(105L, LocalDateTime.now())));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.getRepeatOrderItems(105L, OTHER_ID, false));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+    }
+
+    @Test
+    void getRepeatOrderItemsRejectsGuestOrder() {
+        OrderEntity guestOrder = historyOrder(106L, LocalDateTime.now());
+        guestOrder.setUser(null);
+        when(orderRepository.findById(106L)).thenReturn(Optional.of(guestOrder));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.getRepeatOrderItems(106L, CUSTOMER_ID, false));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+    }
+
+    @Test
+    void getRepeatOrderItemsAllowsAdmin() {
+        OrderEntity order = historyOrder(105L, LocalDateTime.now(),
+                historyLine(3L, "Kaisen Init", "7.00", "6.50", 2, true));
+        when(orderRepository.findById(105L)).thenReturn(Optional.of(order));
+
+        List<RepeatOrderItemDTOResponse> result = service.getRepeatOrderItems(105L, OTHER_ID, true);
+
+        assertEquals(1, result.size());
     }
 
 }

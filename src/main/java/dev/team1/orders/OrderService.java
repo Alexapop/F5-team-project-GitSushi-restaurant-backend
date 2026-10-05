@@ -11,11 +11,14 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.jsoup.Jsoup;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import dev.team1.contracts.IInvoiceService;
 import dev.team1.delivery.dtos.DeliveryAddressDTORequest;
 import dev.team1.delivery.dtos.DeliveryAddressDTOResponse;
 import dev.team1.delivery.dtos.DeliveryConfirmationDTORequest;
@@ -31,6 +34,9 @@ import dev.team1.kitchen.dtos.KitchenOrderDTOResponse.KitchenOrderItemDTO;
 import dev.team1.mail.MailService;
 import dev.team1.orders.dtos.OrderDTORequest;
 import dev.team1.orders.dtos.OrderDTOResponse;
+import dev.team1.orders.dtos.OrderHistoryDTOResponse;
+import dev.team1.orders.dtos.OrderHistoryDTOResponse.OrderHistoryItemDTO;
+import dev.team1.orders.dtos.RepeatOrderItemDTOResponse;
 import dev.team1.orders.dtos.PendingDeliveryDTOResponse;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import dev.team1.orders_products.OrderProductEntity;
@@ -74,17 +80,21 @@ public class OrderService {
     private final TableRepository tableRepository;
     private final UserRepository userRepository;
     private final MailService mailService;
+    // GS-51: OrderService no sabe crear facturas; se lo pide al contrato de facturas.
+    private final IInvoiceService invoiceService;
 
     public OrderService(OrderRepository orderRepository,
             ProductRepository productsRepository,
             TableRepository tableRepository,
             UserRepository userRepository,
-            MailService mailService) {
+            MailService mailService,
+            IInvoiceService invoiceService) {
         this.orderRepository = orderRepository;
         this.productsRepository = productsRepository;
         this.tableRepository = tableRepository;
         this.userRepository = userRepository;
         this.mailService = mailService;
+        this.invoiceService = invoiceService;
     }
 
     @Transactional
@@ -232,6 +242,57 @@ public class OrderService {
         return toTicketResponse(order);
     }
 
+    // historial paginado. Solo lo ve el propio cliente o un admin.
+    @Transactional(readOnly = true)
+    public Page<OrderHistoryDTOResponse> getOrderHistory(UUID userId, UUID currentUserId, boolean isAdmin,
+            Pageable pageable) {
+        if (!isAdmin && !userId.equals(currentUserId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "You are not allowed to see this order history");
+        }
+
+        return orderRepository.findByUser_IdOrderByCreatedAtDesc(userId, pageable)
+                .map(this::toHistoryResponse);
+    }
+
+    private OrderHistoryDTOResponse toHistoryResponse(OrderEntity order) {
+        List<OrderHistoryItemDTO> items = order.getOrderProducts().stream()
+                .map(op -> new OrderHistoryItemDTO(
+                        op.getProduct().getId(),
+                        op.getProduct().getName(),
+                        op.getQuantity().intValue(),
+                        op.getUnitPrice(),
+                        op.getProduct().isAvailable()))
+                .toList();
+
+        return new OrderHistoryDTOResponse(order.getId(), order.getCreatedAt(), items, order.getTotal());
+    }
+
+    // líneas de un pedido anterior para cargarlas en la cesta.
+    // Solo productos disponibles y con su precio actual.
+    @Transactional(readOnly = true)
+    public List<RepeatOrderItemDTOResponse> getRepeatOrderItems(Long orderId, UUID currentUserId, boolean isAdmin) {
+        OrderEntity order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Order not found: " + orderId));
+
+        boolean isOwner = order.getUser() != null && order.getUser().getId().equals(currentUserId);
+
+        if (!isAdmin && !isOwner) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "You are not allowed to repeat this order");
+        }
+
+        return order.getOrderProducts().stream()
+                .filter(op -> op.getProduct().isAvailable())
+                .map(op -> new RepeatOrderItemDTOResponse(
+                        op.getProduct().getId(),
+                        op.getProduct().getName(),
+                        op.getProduct().getPrice(),
+                        op.getQuantity().intValue()))
+                .toList();
+    }
+
     private TicketDTOResponse toTicketResponse(OrderEntity order) {
         List<TicketItemDTO> items = order.getOrderProducts().stream()
                 .map(op -> new TicketItemDTO(
@@ -342,6 +403,8 @@ public class OrderService {
         order.setPaymentStatus(null);
         order.setPaidAt(LocalDateTime.now());
         OrderEntity savedOrder = orderRepository.save(order);
+        // GS-51: el pago confirmado genera la factura que ven Facturación, Resumen y KPI.
+        invoiceService.createForPaidOrder(savedOrder);
         return toResponse(savedOrder);
     }
 
@@ -599,8 +662,8 @@ public class OrderService {
         return toResponse(savedOrder);
     }
 
-        @Transactional
-    public OrderDTOResponse markAsDelivered(Long id, DeliveryConfirmationDTORequest request) {
+    @Transactional
+        public OrderDTOResponse markAsDelivered(Long id, DeliveryConfirmationDTORequest request) {
         OrderEntity order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Order not found: " + id));
@@ -620,17 +683,24 @@ public class OrderService {
 
         order.setStatus(OrderStatus.DELIVERED);
         order.setDeliveredAt(LocalDateTime.now());
-        if (order.getPaymentMethod() == PaymentMethod.CASH_ON_DELIVERY) {
+        boolean cashCollectedOnDelivery = order.getPaymentMethod() == PaymentMethod.CASH_ON_DELIVERY;
+        if (cashCollectedOnDelivery) {
             order.setPaymentStatus(null); // el repartidor ya ha cobrado
+            order.setPaidAt(LocalDateTime.now());
         }
         OrderEntity savedOrder = orderRepository.save(order);
+        // GS-51: en efectivo a la entrega, el cobro del repartidor genera la factura.
+        if (cashCollectedOnDelivery) {
+            invoiceService.createForPaidOrder(savedOrder);
+        }
         return toResponse(savedOrder);
     }
+
         @Transactional(readOnly = true)
     public List<PendingDeliveryDTOResponse> getPendingDeliveries() {
         List<OrderEntity> orders = orderRepository
                 .findByStatusAndChannelAndDeliverymanIsNull(OrderStatus.READY, OrderChannel.ONLINE);
-
+                
         return orders.stream()
                 .map(order -> new PendingDeliveryDTOResponse(
                         order.getId(),

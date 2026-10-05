@@ -76,6 +76,8 @@ public class SecurityConfiguration {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, pre + "/users").permitAll()
                 .requestMatchers(HttpMethod.PUT, pre + "/users/*").authenticated()
+                //  el historial lo ve cualquier usuario autenticado; OrderService comprueba que sea el suyo
+                .requestMatchers(HttpMethod.GET, pre + "/users/*/orders").authenticated()
                 .requestMatchers(pre + "/users").hasRole("ADMIN")
                 .requestMatchers(pre + "/users/**").hasRole("ADMIN")
                 .requestMatchers(pre + "/products/administration").hasRole("ADMIN")
@@ -99,6 +101,8 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, pre + "/tickets/*").permitAll()
                 // GS-475: resumen de ventas y PDF, solo para el administrador
                 .requestMatchers(pre + "/reports/**").hasRole("ADMIN")
+                // GS-486: KPI de ventas, solo para el administrador
+                .requestMatchers(pre + "/kpi/**").hasRole("ADMIN")
 
                 .anyRequest().authenticated())
             
