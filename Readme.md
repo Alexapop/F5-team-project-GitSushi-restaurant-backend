@@ -6,8 +6,8 @@ GitSushi is a team project developed as part of the Factoría F5 bootcamp. Its o
 
 The application is divided into two separate repositories:
 
-- **Frontend repository:** [GitSushi Restaurant Frontend](https://github.com/FactoriaF5-Asturias/project-p5-digital-academy-team1-restaurant-frontend)
-- **Backend repository:** [GitSushi Restaurant Backend](https://github.com/FactoriaF5-Asturias/project-p5-digital-academy-team1-restaurant-backend)
+- **Frontend repository:** [GitSushi Restaurant Frontend](https://github.com/Alexapop/F5-team-project-GitSushi-restaurant-frontend)
+- **Backend repository:** [GitSushi Restaurant Backend](https://github.com/Alexapop/F5-team-project-GitSushi-restaurant-backend)
 
 ## ✨ Features
 
@@ -88,13 +88,13 @@ This project is developed using **Agile methodologies** to ensure efficient deli
 
 Detailed project specifications, architectural decisions, and technical guides can be found in the Wiki:
 
-* **[Getting Started](https://github.com/FactoriaF5-Asturias/project-p5-digital-academy-team1-restaurant-backend/wiki/Getting-Started):** Step-by-step instructions on environment setup, installation, and running the project locally.
-* **[Agile Management & User Stories](https://github.com/FactoriaF5-Asturias/project-p5-digital-academy-team1-restaurant-backend/wiki/Project-Management-&-User-Stories):** Documentation of our Scrum workflow, 2-sprint execution, team roles, Jira tracking, and user stories.
-* **[Analysis and Diagrams](https://github.com/FactoriaF5-Asturias/project-p5-digital-academy-team1-restaurant-backend/wiki/Analysis-and-diagrams):** Use case specifications, flowcharts, and system requirement details.
-* **[Architecture](https://github.com/FactoriaF5-Asturias/project-p5-digital-academy-team1-restaurant-backend/wiki/Architecture):** Overview of the decoupled structure, database schemas, and folder organization (controllers, services, and repositories).
-* **[Security](https://github.com/FactoriaF5-Asturias/project-p5-digital-academy-team1-restaurant-backend/wiki/Security):** Implementation details for data validation, password hashing, and token-based authentication (JWT).
-* **[API Reference](https://github.com/FactoriaF5-Asturias/project-p5-digital-academy-team1-restaurant-backend/wiki/API-Reference):** Complete documentation of RESTful routes, request payloads, and structured HTTP responses.
-* **[Testing](https://github.com/FactoriaF5-Asturias/project-p5-digital-academy-team1-restaurant-backend/wiki/Testing):** Guidelines for running unit tests, integration tests, and validating endpoint behaviors.
+* **[Getting Started](https://github.com/Alexapop/F5-team-project-GitSushi-restaurant-backend/wiki/Getting-Started):** Step-by-step instructions on environment setup, installation, and running the project locally.
+* **[Agile Management & User Stories](https://github.com/Alexapop/F5-team-project-GitSushi-restaurant-backend/wiki/Project-Management-&-User-Stories):** Documentation of our Scrum workflow, 2-sprint execution, team roles, Jira tracking, and user stories.
+* **[Analysis and Diagrams](https://github.com/Alexapop/F5-team-project-GitSushi-restaurant-backend/wiki/Analysis-and-diagrams):** Use case specifications, flowcharts, and system requirement details.
+* **[Architecture](https://github.com/Alexapop/F5-team-project-GitSushi-restaurant-backend/wiki/Architecture):** Overview of the decoupled structure, database schemas, and folder organization (controllers, services, and repositories).
+* **[Security](https://github.com/Alexapop/F5-team-project-GitSushi-restaurant-backend/wiki/Security):** Implementation details for data validation, password hashing, and token-based authentication (JWT).
+* **[API Reference](https://github.com/Alexapop/F5-team-project-GitSushi-restaurant-backend/wiki/API-Reference):** Complete documentation of RESTful routes, request payloads, and structured HTTP responses.
+* **[Testing](https://github.com/Alexapop/F5-team-project-GitSushi-restaurant-backend/wiki/Testing):** Guidelines for running unit tests, integration tests, and validating endpoint behaviors.
 
 
 
